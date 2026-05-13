@@ -721,7 +721,7 @@ function renderMapInfo(info,data=null,loading=false){
   </div>
   <div class="mi-badges">${badges}</div>
   ${data?miniVaxList(data):''}
-  <div class="mi-text">${data?'Rychlý přehled slouží jako destinační základ, ne jako finální individuální plán. Finální doporučení vždy potvrďte při konzultaci s lékařem.':'Po výběru destinace se detail zobrazí i v panelu pod mapou. Ve fullscreen režimu máte tento rychlý přehled přímo nad mapou.'}</div>
+  <div class="mi-text">${data?'Rychlý přehled nejčastějších doporučení a rizik vidíte přímo zde. Nejde vždy o kompletní výčet, další položky najdete v detailu níže.':'Po výběru destinace se detail zobrazí i v panelu pod mapou. Ve fullscreen režimu máte tento rychlý přehled přímo nad mapou.'}</div>
   ${loading?'<div class="mi-loading">Načítám detail destinace…</div>':''}
   <div class="mi-actions">
     <a class="mi-btn" href="${esc(centerUrl)}" target="_blank" rel="noopener noreferrer">Najít očkovací centrum</a>
@@ -767,7 +767,6 @@ function renderPanel(info){
       </div>
     </div>
     <div class="div"></div>
-    <p class="intro">Detail destinace je orientační přehled. Finální doporučení očkování vždy potvrďte s lékařem podle konkrétní osoby, zdravotního stavu a itineráře.</p>
     <div id="vb"><p class="ml">${info.has?'Načítám vakcinační doporučení…':'Pro tuto destinaci zatím nejsou dostupná detailní doporučení.'}</p></div>
     <div class="cft">
       <div class="actionrow">
@@ -829,10 +828,8 @@ function sectionPillsHtml(items,cls,limit=9){
   const shown=items.slice(0,limit);
   const rest=items.slice(limit);
   return `<div class="pills">${shown.map(v=>pillHtml(v,cls)).join('')}</div>
-  <details class="pill-more">
-    <summary>Zobrazit dalších ${rest.length}</summary>
-    <div class="pills">${rest.map(v=>pillHtml(v,cls)).join('')}</div>
-  </details>`;
+  <button class="pill-expand" type="button" data-pill-expand>Zobrazit dalších ${rest.length}+</button>
+  <div class="pills pills-rest" hidden>${rest.map(v=>pillHtml(v,cls)).join('')}</div>`;
 }
 
 function sectionHtml(cls,label,key,items,emptyText){
@@ -849,6 +846,18 @@ function setupHelpButtons(root=document){
       const key=btn.dataset.help;
       const note=btn.closest('#vb')?.querySelector(`[data-help-note="${CSS.escape(key)}"]`) || document.querySelector(`[data-help-note="${CSS.escape(key)}"]`);
       if(note)note.classList.toggle('open');
+    });
+  });
+}
+
+function setupPillExpanders(root=document){
+  root.querySelectorAll('[data-pill-expand]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const hiddenPills=btn.nextElementSibling;
+      if(hiddenPills && hiddenPills.classList.contains('pills-rest')){
+        hiddenPills.hidden=false;
+      }
+      btn.remove();
     });
   });
 }
@@ -885,6 +894,7 @@ function renderVax(data){
 
   vb.innerHTML=h;
   setupHelpButtons(vb);
+  setupPillExpanders(vb);
 }
 
 function closePanel(){
