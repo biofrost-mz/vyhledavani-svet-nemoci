@@ -323,3 +323,22 @@ const DISEASES={
     aliases:['chripka','influenza','flu']
   }
 };
+
+/* Volitelný backendový index nemocí.
+   Pokud API vrací mapu nemoc -> seznam ID destinací, vyplňte URL.
+   Pokud je null, frontend použije metadata v seznamu destinací a fallback přes detail destinace. */
+const DISEASE_INDEX_API_URL=null;
+
+/* Pole v API seznamu destinací, ze kterých se frontend pokusí číst značky nemocí/rizik.
+   Každá položka může být string, array nebo objekt s name/key/id/slug/title. */
+const DISEASE_INDEX_ROW_FIELDS=[
+  'diseases',
+  'diseaseKeys',
+  'disease_tags',
+  'diseaseTags',
+  'risks',
+  'riskTags',
+  'vaccines',
+  'vaccinationTags',
+  'tags'
+];

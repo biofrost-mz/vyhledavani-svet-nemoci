@@ -16,10 +16,31 @@ const FM=new Map(); /* norm ISO numeric → GeoJSON feature */
 const VM=new Map(); /* norm ISO numeric → fallback marker element */
 let selEl=null,selD=null,selMark=null,selMarkId=null;
 let pg,prj,zb,sv,gv,W,H,currentZoomK=1;
+let oceanRect=null,graticulePath=null,bordersPath=null,countryPaths=null,markerSelection=null;
+let mapResizeListenersBound=false;
 
 let activeDisease='all';
+let requestedDisease='all';
+let filterRequestToken=0;
 const diseaseIndex=new Map(); /* diseaseKey → Set(countryId) */
+const diseaseIndexSource=new Map(); /* diseaseKey → 'detail'|'api-row'|'api-index'|'cache' */
 const detailLoading=new Map();
+const detailCache=new Map(); /* slug -> {status:'ok'|'error', ts:number, data?:object} */
+const DETAIL_ERROR_RETRY_MS=90*1000;
+const LAYOUT_MODE_KEY='avenierMapLayoutModeV1';
+const LAYOUT_MODE_CLASS='main-guided';
+let layoutMode='classic';
+
+function loadLayoutMode(){
+  try{
+    const raw=localStorage.getItem(LAYOUT_MODE_KEY);
+    return raw==='guided'?'guided':'classic';
+  }catch(e){
+    return 'classic';
+  }
+}
+
+layoutMode=loadLayoutMode();
 
 const ADMIN_MAP_KEY='avenierMapAdminOverridesV1';
 function loadAdminOverrides(){
@@ -198,8 +219,8 @@ function colorForId(id){
 function hoverColorForId(id){
   const nid=normId(id);
   if(activeDisease && activeDisease!=='all'){
-    const hits=diseaseIndex.get(activeDisease);
-    return hits?.has(nid)?DISEASES[activeDisease].hover:MC.dim;
+    if(!diseaseIndex.has(activeDisease))return MC.dim;
+    return diseaseContainsMapId(activeDisease,nid)?DISEASES[activeDisease].hover:MC.dim;
   }
   return MC.hov;
 }
@@ -225,9 +246,40 @@ const PX=[
   url=>'https://corsproxy.io/?'+encodeURIComponent(url),
   url=>'https://api.allorigins.win/raw?url='+encodeURIComponent(url)
 ];
-const cache=new Map();
 let curSlug=null;
 let curInfo=null;
+const defaultDiseaseRowFields=['diseases','diseaseKeys','disease_tags','diseaseTags','risks','riskTags','vaccines','vaccinationTags','tags'];
+const diseaseIndexApiUrl=(typeof DISEASE_INDEX_API_URL==='string' && DISEASE_INDEX_API_URL.trim())?DISEASE_INDEX_API_URL.trim():null;
+const diseaseIndexRowFields=Array.isArray(typeof DISEASE_INDEX_ROW_FIELDS==='undefined'?null:DISEASE_INDEX_ROW_FIELDS)
+  ? DISEASE_INDEX_ROW_FIELDS
+  : defaultDiseaseRowFields;
+let diseaseIndexApiLoadPromise=null;
+
+function getCachedDetailState(slug){
+  const key=String(slug||'');
+  const entry=detailCache.get(key);
+  if(!entry)return 'miss';
+  if(entry.status==='ok')return 'ok';
+  if(Date.now()-entry.ts<DETAIL_ERROR_RETRY_MS)return 'error';
+  detailCache.delete(key);
+  return 'miss';
+}
+
+function getCachedDetail(slug){
+  const key=String(slug||'');
+  const entry=detailCache.get(key);
+  if(!entry)return null;
+  if(entry.status==='ok')return entry.data||null;
+  return null;
+}
+
+function setCachedDetailSuccess(slug,data){
+  detailCache.set(String(slug||''),{status:'ok',data,ts:Date.now()});
+}
+
+function setCachedDetailError(slug){
+  detailCache.set(String(slug||''),{status:'error',ts:Date.now()});
+}
 
 async function apiFetch(url){
   for(const makeUrl of PX){
@@ -247,7 +299,7 @@ function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').
 function pillHtml(v,cls){
   const name=esc(v?.name||v?.title||v);
   const url=v?.url||v?.www||'';
-  if(url)return `<a class="pill ${cls}" href="${esc(url)}" target="_blank" rel="noopener">${name}</a>`;
+  if(url)return `<a class="pill ${cls}" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${name}</a>`;
   return `<span class="pill ${cls}">${name}</span>`;
 }
 
@@ -272,14 +324,21 @@ function dataHasDisease(data,key){
 
 async function fetchCountryDetail(info){
   if(!info?.has||!info.slug)return null;
-  if(cache.has(info.slug))return cache.get(info.slug);
+  const cacheState=getCachedDetailState(info.slug);
+  if(cacheState==='ok')return getCachedDetail(info.slug);
+  if(cacheState==='error')return null;
   if(detailLoading.has(info.slug))return detailLoading.get(info.slug);
   const promise=apiFetch(`${APIS}/${encodeURIComponent(info.slug)}`).then(d=>{
-    cache.set(info.slug,d);
     detailLoading.delete(info.slug);
-    return d;
+    if(d && typeof d==='object'){
+      setCachedDetailSuccess(info.slug,d);
+      return d;
+    }
+    setCachedDetailError(info.slug);
+    return null;
   }).catch(e=>{
     detailLoading.delete(info.slug);
+    setCachedDetailError(info.slug);
     console.warn('Detail destinace se nepodařilo načíst:',info.slug,e);
     return null;
   });
@@ -287,12 +346,156 @@ async function fetchCountryDetail(info){
   return promise;
 }
 
-async function buildDiseaseIndex(key){
+function toDiseaseKey(token){
+  const t=slugKey(token);
+  if(!t)return null;
+  if(DISEASES[t])return t;
+  for(const [key,cfg] of Object.entries(DISEASES)){
+    if(slugKey(cfg.label)===t)return key;
+    if((cfg.aliases||[]).some(a=>slugKey(a)===t))return key;
+  }
+  return null;
+}
+
+function collectDiseaseTokens(value,out){
+  if(value===null || value===undefined)return;
+  if(Array.isArray(value)){
+    value.forEach(v=>collectDiseaseTokens(v,out));
+    return;
+  }
+  if(typeof value==='object'){
+    ['key','id','slug','name','title','disease','risk'].forEach(k=>{
+      if(value[k]!==undefined)collectDiseaseTokens(value[k],out);
+    });
+    return;
+  }
+  if(typeof value==='string' || typeof value==='number'){
+    out.push(String(value));
+  }
+}
+
+function extractDiseaseKeysFromRow(row){
+  const tokens=[];
+  diseaseIndexRowFields.forEach(field=>collectDiseaseTokens(row?.[field],tokens));
+  const keys=new Set();
+  tokens.forEach(t=>{
+    const key=toDiseaseKey(t);
+    if(key)keys.add(key);
+  });
+  return [...keys];
+}
+
+function resolveApiRowDestinationIds(row){
+  const mapped=apiDestinationMapping(row);
+  if(mapped){
+    const rawSlug=row?.id||row?.slug||apiRowKeys(row)[0]||'unknown';
+    return [normId(mapped.id ?? `api:${rawSlug}`)];
+  }
+  const forced=forcedIsoForRow(row);
+  if(forced)return [normId(forced)];
+
+  const keys=new Set(apiRowKeys(row));
+  if(!keys.size)return [];
+
+  const ids=[];
+  FI.forEach((info,id)=>{
+    const slug=slugKey(info.slug);
+    const name=slugKey(info.name);
+    if((slug && keys.has(slug)) || (name && keys.has(name))){
+      ids.push(normId(id));
+    }
+  });
+  return unique(ids.map(normId));
+}
+
+function upsertDiseaseIndex(key,ids,source){
+  const normalizedIds=unique((ids||[]).map(normId).filter(id=>id!==null && id!==undefined));
+  if(!normalizedIds.length)return;
+  const set=diseaseIndex.get(key)||new Set();
+  normalizedIds.forEach(id=>set.add(id));
+  diseaseIndex.set(key,set);
+  if(!diseaseIndexSource.has(key))diseaseIndexSource.set(key,source);
+}
+
+function parseDiseaseIndexIds(raw){
+  if(Array.isArray(raw))return raw;
+  if(raw && typeof raw==='object'){
+    if(Array.isArray(raw.ids))return raw.ids;
+    if(Array.isArray(raw.countryIds))return raw.countryIds;
+    if(Array.isArray(raw.destinations))return raw.destinations;
+  }
+  return [];
+}
+
+function mergeDiseaseIndexPayload(payload,source='api-index'){
+  if(!payload)return 0;
+  let merged=0;
+
+  if(Array.isArray(payload)){
+    payload.forEach(item=>{
+      const key=toDiseaseKey(item?.key||item?.disease||item?.name);
+      if(!key)return;
+      const ids=parseDiseaseIndexIds(item);
+      if(ids.length){
+        upsertDiseaseIndex(key,ids,source);
+        merged++;
+      }
+    });
+    return merged;
+  }
+
+  const root=(payload && typeof payload==='object' && payload.diseases && typeof payload.diseases==='object')
+    ? payload.diseases
+    : payload;
+  if(!root || typeof root!=='object')return 0;
+
+  Object.entries(root).forEach(([rawKey,rawVal])=>{
+    const key=toDiseaseKey(rawKey);
+    if(!key)return;
+    const ids=parseDiseaseIndexIds(rawVal);
+    if(ids.length){
+      upsertDiseaseIndex(key,ids,source);
+      merged++;
+    }
+  });
+  return merged;
+}
+
+function seedDiseaseIndexFromApiRows(rows){
+  let added=0;
+  (rows||[]).forEach(row=>{
+    const diseaseKeys=extractDiseaseKeysFromRow(row);
+    if(!diseaseKeys.length)return;
+    const ids=resolveApiRowDestinationIds(row);
+    if(!ids.length)return;
+    diseaseKeys.forEach(key=>{
+      upsertDiseaseIndex(key,ids,'api-row');
+      added++;
+    });
+  });
+  return added;
+}
+
+async function loadDiseaseIndexFromApiIfConfigured(){
+  if(!diseaseIndexApiUrl)return;
+  if(diseaseIndexApiLoadPromise)return diseaseIndexApiLoadPromise;
+  diseaseIndexApiLoadPromise=apiFetch(diseaseIndexApiUrl).then(payload=>{
+    if(payload)mergeDiseaseIndexPayload(payload,'api-index');
+    return payload;
+  }).catch(e=>{
+    console.warn('Backendový index nemocí se nepodařilo načíst:',e);
+    return null;
+  });
+  return diseaseIndexApiLoadPromise;
+}
+
+async function buildDiseaseIndexFromDetails(key,{token=null}={}){
   if(diseaseIndex.has(key))return diseaseIndex.get(key);
   const status=document.getElementById('filter-status');
   const loader=document.getElementById('filter-loader');
-  if(status)status.textContent=`Načítám filtr: ${DISEASES[key].label}…`;
-  if(loader)loader.classList.add('on');
+  const isCurrent=()=>token===null || token===filterRequestToken;
+  if(status && isCurrent())status.textContent=`Načítám filtr: ${DISEASES[key].label}…`;
+  if(loader && isCurrent())loader.classList.add('on');
 
   const countries=[...FI.entries()].filter(([,info])=>info.has&&info.slug);
   const hits=new Set();
@@ -306,7 +509,7 @@ async function buildDiseaseIndex(key){
       const data=await fetchCountryDetail(info);
       if(dataHasDisease(data,key))hits.add(normId(id));
       done++;
-      if(status && (done%12===0 || done===countries.length)){
+      if(status && isCurrent() && (done%12===0 || done===countries.length)){
         status.textContent=`Načítám filtr: ${DISEASES[key].label} · ${done}/${countries.length}`;
       }
     }
@@ -314,9 +517,20 @@ async function buildDiseaseIndex(key){
 
   await Promise.all(Array.from({length:Math.min(limit,countries.length)},worker));
   diseaseIndex.set(key,hits);
-  if(loader)loader.classList.remove('on');
-  if(status)status.textContent=`${DISEASES[key].label}: zvýrazněno ${hits.size} destinací.`;
+  diseaseIndexSource.set(key,'detail');
+  if(loader && isCurrent())loader.classList.remove('on');
+  if(status && isCurrent())status.textContent=`${DISEASES[key].label}: zvýrazněno ${hits.size} destinací.`;
   return hits;
+}
+
+async function ensureDiseaseIndex(key,{token=null}={}){
+  if(diseaseIndex.has(key)){
+    if(!diseaseIndexSource.has(key))diseaseIndexSource.set(key,'cache');
+    return diseaseIndex.get(key);
+  }
+  await loadDiseaseIndexFromApiIfConfigured();
+  if(diseaseIndex.has(key))return diseaseIndex.get(key);
+  return buildDiseaseIndexFromDetails(key,{token});
 }
 
 function effectiveDiseaseHits(key){
@@ -391,30 +605,54 @@ function repaintMap(){
     .attr('stroke-width',d=>(selMarkId!==null&&normId(d.id)===normId(selMarkId)?1.7:1)/(currentZoomK||1));
 }
 
+function diseaseSourceLabel(key){
+  const src=diseaseIndexSource.get(key);
+  if(src==='api-row')return ' (zdroj: přímé API značky)';
+  if(src==='api-index')return ' (zdroj: backendový index)';
+  if(src==='detail')return ' (zdroj: detail destinací)';
+  return '';
+}
+
 async function setDiseaseFilter(key){
-  activeDisease=key||'all';
+  requestedDisease=key||'all';
+  if(requestedDisease!=='all' && !DISEASES[requestedDisease]){
+    console.warn('Neznámý filtr nemoci:',requestedDisease);
+    requestedDisease='all';
+  }
+  const token=++filterRequestToken;
   scrollMapIntoView();
   document.querySelectorAll('.fbtn[data-disease]').forEach(btn=>{
-    btn.classList.toggle('active',btn.dataset.disease===activeDisease);
+    btn.classList.toggle('active',btn.dataset.disease===requestedDisease);
   });
 
-  if(activeDisease==='all'){
+  if(requestedDisease==='all'){
+    activeDisease='all';
     const status=document.getElementById('filter-status');
     const loader=document.getElementById('filter-loader');
     if(loader)loader.classList.remove('on');
     if(status)status.textContent='Zobrazeny všechny destinace s dostupným detailem.';
     repaintMap();
     renderFilterResults();
-    if(curInfo)renderMapInfo(curInfo,cache.get(curInfo.slug)||null,false);
+    if(curInfo)renderMapInfo(curInfo,getCachedDetail(curInfo.slug),false);
     return;
   }
 
-  const hits=await buildDiseaseIndex(activeDisease);
+  activeDisease=requestedDisease;
   const status=document.getElementById('filter-status');
-  if(status)status.textContent=`${DISEASES[activeDisease].label}: zvýrazněno ${hits.size} destinací.`;
+  const loader=document.getElementById('filter-loader');
+  if(loader)loader.classList.add('on');
+  if(status)status.textContent=`Načítám filtr: ${DISEASES[requestedDisease].label}…`;
+
+  await ensureDiseaseIndex(requestedDisease,{token});
+  if(token!==filterRequestToken)return;
+
+  activeDisease=requestedDisease;
+  if(loader)loader.classList.remove('on');
+  const effectiveHits=effectiveDiseaseHits(activeDisease);
+  if(status)status.textContent=`${DISEASES[activeDisease].label}: zvýrazněno ${effectiveHits.size} destinací${diseaseSourceLabel(activeDisease)}.`;
   repaintMap();
   renderFilterResults();
-  if(curInfo)renderMapInfo(curInfo,cache.get(curInfo.slug)||null,false);
+  if(curInfo)renderMapInfo(curInfo,getCachedDetail(curInfo.slug),false);
 }
 
 function setupFilters(){
@@ -451,7 +689,7 @@ function vaxName(v){
 function miniPillHtml(v,cls='d'){
   const name=vaxName(v);
   const url=v?.url||v?.www||'';
-  if(url)return `<a class="mi-link-pill ${cls}" href="${esc(url)}" target="_blank" rel="noopener">${name}</a>`;
+  if(url)return `<a class="mi-link-pill ${cls}" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${name}</a>`;
   return `<span class="mi-pill ${cls}">${name}</span>`;
 }
 
@@ -463,7 +701,7 @@ function miniGroupHtml(label,items,cls,limit=3){
     <span class="mi-row-label">${esc(label)}</span>
     <div class="mi-row-pills">
       ${shown.map(v=>miniPillHtml(v,cls)).join('')}
-      ${more>0?`<button class="mi-more" id="mi-more-detail" type="button">… a ${more} dalších</button>`:''}
+      ${more>0?`<button class="mi-more" data-mi-action="scroll-detail" type="button">… a ${more} dalších</button>`:''}
     </div>
   </div>`;
 }
@@ -478,9 +716,117 @@ function miniVaxList(data){
   return h?`<div class="mi-vax-groups">${h}</div>`:'';
 }
 
+function isGuidedDesktopLayout(){
+  return layoutMode==='guided' && window.matchMedia('(min-width: 1100px)').matches;
+}
+
+function clearFlowSide(){
+  const side=document.getElementById('flow-side');
+  if(!side)return;
+  side.hidden=true;
+  side.innerHTML='';
+}
+
+function renderFlowSide(info,data=null,loading=false){
+  const side=document.getElementById('flow-side');
+  if(!side||!info)return;
+  const url=info.www||`https://www.ockovacicentrum.cz/cz/${info.slug}`;
+  const {pov,zak,dop}=vaxArrays(data);
+  const np=pov.length, nz=zak.length, nd=dop.length;
+  const flowBadges=data
+    ? `<span class="mi-badge p">${np} povinné</span><span class="mi-badge z">${nz} základní</span><span class="mi-badge d">${nd} doporučené</span>`
+    : (info.has?`<span class="mi-badge">Načítám doporučení…</span>`:`<span class="mi-badge">Bez detailních doporučení</span>`);
+  side.hidden=false;
+  side.innerHTML=`<div class="flow-card">
+    <div class="flow-kicker">Krokový přehled</div>
+    <div class="flow-title">${esc(info.name)}</div>
+    <p class="flow-note">Rychlý 3krokový postup pro klienta: vybrat destinaci, zkontrolovat doporučení, objednat konzultaci.</p>
+    <div class="flow-steps">
+      <div class="flow-step">
+        <div class="flow-step-label">Krok 1</div>
+        <div class="flow-step-title">Vybraná destinace: <strong>${esc(info.name)}</strong></div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-step-label">Krok 2</div>
+        <div class="flow-step-title">Zkontrolujte povinná / základní / doporučená očkování</div>
+        <div class="flow-badges">${flowBadges}</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-step-label">Krok 3</div>
+        <div class="flow-step-title">Pokračujte na objednání nebo detail destinace</div>
+      </div>
+    </div>
+    ${loading?'<div class="mi-loading">Načítám detail destinace…</div>':''}
+    ${data?miniVaxList(data):'<div class="flow-empty">Po načtení detailu uvidíte i stručný seznam nejdůležitějších položek.</div>'}
+    <div class="flow-actions">
+      <button class="mi-btn secondary" data-flow-action="scroll-detail" type="button">Zobrazit detail níže</button>
+      <a class="mi-btn" href="https://www.ockovacicentrum.cz/cz/kde-ockujeme" target="_blank" rel="noopener noreferrer">Najít očkovací centrum</a>
+      <a class="mi-btn secondary" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Otevřít detail země</a>
+    </div>
+  </div>`;
+
+  side.onclick=e=>{
+    const actionEl=e.target.closest('[data-flow-action]');
+    if(!actionEl)return;
+    if(actionEl.dataset.flowAction==='scroll-detail'){
+      document.getElementById('pnl')?.scrollIntoView({behavior:'smooth',block:'start'});
+    }
+  };
+}
+
+function applyLayoutMode(){
+  const main=document.querySelector('.main');
+  const btn=document.getElementById('layout-toggle');
+  const note=document.getElementById('layout-note');
+  const guided=isGuidedDesktopLayout();
+  if(main){
+    main.classList.toggle(LAYOUT_MODE_CLASS,guided);
+  }
+  if(btn){
+    btn.setAttribute('aria-pressed',layoutMode==='guided'?'true':'false');
+    btn.textContent=layoutMode==='guided'
+      ? 'Přepnout na aktuální zobrazení'
+      : 'Přepnout na krokové zobrazení';
+  }
+  if(note){
+    const showNote=layoutMode==='guided' && !guided;
+    note.hidden=!showNote;
+    note.textContent=showNote?'Krokový režim je připravený pro desktop od šířky 1100 px.':'';
+  }
+  if(curInfo){
+    renderMapInfo(curInfo,getCachedDetail(curInfo.slug),false);
+  }else{
+    clearFlowSide();
+    clearMapInfo();
+  }
+}
+
+function setLayoutMode(mode,{persist=true}={}){
+  layoutMode=mode==='guided'?'guided':'classic';
+  if(persist){
+    try{localStorage.setItem(LAYOUT_MODE_KEY,layoutMode);}catch(e){}
+  }
+  applyLayoutMode();
+}
+
+function setupLayoutToggle(){
+  const btn=document.getElementById('layout-toggle');
+  if(!btn)return;
+  btn.addEventListener('click',()=>{
+    setLayoutMode(layoutMode==='guided'?'classic':'guided');
+  });
+  applyLayoutMode();
+}
+
 function renderMapInfo(info,data=null,loading=false){
   const box=document.getElementById('map-info');
   if(!box||!info)return;
+  if(isGuidedDesktopLayout()){
+    clearMapInfo();
+    renderFlowSide(info,data,loading);
+    return;
+  }
+  clearFlowSide();
   const url=info.www||`https://www.ockovacicentrum.cz/cz/${info.slug}`;
   const {pov,zak,dop}=vaxArrays(data);
   const np=pov.length, nz=zak.length, nd=dop.length;
@@ -492,21 +838,30 @@ function renderMapInfo(info,data=null,loading=false){
       <div class="mi-label">Vybraná destinace</div>
       <div class="mi-title">${esc(info.name)}</div>
     </div>
-    <button class="mi-close" id="mi-close" type="button" aria-label="Zavřít">×</button>
+    <button class="mi-close" data-mi-action="close" type="button" aria-label="Zavřít">×</button>
   </div>
   <div class="mi-badges">${badges}</div>
   ${data?miniVaxList(data):''}
   <div class="mi-text">${data?'Rychlý přehled nejčastějších doporučení a rizik vidíte přímo zde. Nejde vždy o kompletní výčet — další informace a všechny proklikové položky najdete v detailu níže.':'Po výběru destinace se detail zobrazí i v panelu pod mapou. Ve fullscreen režimu máte tento rychlý přehled přímo nad mapou.'}</div>
   ${loading?'<div class="mi-loading">Načítám detail destinace…</div>':''}
   <div class="mi-actions">
-    <button class="mi-btn secondary" id="mi-scroll-detail" type="button">Zobrazit detail níže</button>
-    <a class="mi-btn" href="${esc(url)}" target="_blank" rel="noopener">Otevřít detail země</a>
+    <button class="mi-btn secondary" data-mi-action="scroll-detail" type="button">Zobrazit detail níže</button>
+    <a class="mi-btn" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Otevřít detail země</a>
   </div>`;
   box.classList.add('open');
   const scrollToPanel=()=>document.getElementById('pnl')?.scrollIntoView({behavior:'smooth',block:'start'});
-  document.getElementById('mi-close')?.addEventListener('click',closePanel);
-  document.getElementById('mi-scroll-detail')?.addEventListener('click',scrollToPanel);
-  document.getElementById('mi-more-detail')?.addEventListener('click',scrollToPanel);
+  box.onclick=e=>{
+    const actionEl=e.target.closest('[data-mi-action]');
+    if(!actionEl)return;
+    const action=actionEl.dataset.miAction;
+    if(action==='close'){
+      closePanel();
+      return;
+    }
+    if(action==='scroll-detail'){
+      scrollToPanel();
+    }
+  };
 }
 
 function clearMapInfo(){
@@ -520,7 +875,8 @@ function renderPanel(info){
   const url=info.www||`https://www.ockovacicentrum.cz/cz/${info.slug}`;
   curSlug=info.slug;
   curInfo=info;
-  renderMapInfo(info,cache.get(info.slug)||null,info.has&&!cache.has(info.slug));
+  const cacheState=getCachedDetailState(info.slug);
+  renderMapInfo(info,getCachedDetail(info.slug),info.has&&cacheState==='miss');
 
   wrap.innerHTML=`<div class="card">
     <div class="chd">
@@ -535,11 +891,11 @@ function renderPanel(info){
     <div id="vb"><p class="ml">${info.has?'Načítám vakcinační doporučení…':'Pro tuto destinaci zatím nejsou dostupná detailní doporučení.'}</p></div>
     <div class="cft">
       <div class="actionrow">
-        <a class="bmore" href="${esc(url)}" target="_blank" rel="noopener">
+        <a class="bmore" href="${esc(url)}" target="_blank" rel="noopener noreferrer">
           Zjistit více o zemi
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         </a>
-        <a class="bmore secondary" href="https://www.ockovacicentrum.cz/cz/kde-ockujeme" target="_blank" rel="noopener">Najít očkovací centrum</a>
+        <a class="bmore secondary" href="https://www.ockovacicentrum.cz/cz/kde-ockujeme" target="_blank" rel="noopener noreferrer">Najít očkovací centrum</a>
       </div>
       <span class="ftnote">ockovacicentrum.cz</span>
     </div>
@@ -554,7 +910,10 @@ function renderPanel(info){
     return;
   }
 
-  if(cache.has(info.slug)){renderVax(cache.get(info.slug));return;}
+  if(cacheState==='ok'){
+    renderVax(getCachedDetail(info.slug));
+    return;
+  }
   const t=info.slug;
   fetchCountryDetail(info).then(d=>{
     if(curSlug!==t)return;
@@ -637,32 +996,45 @@ function renderVax(data){
 
 function closePanel(){
   const w=document.getElementById('pnl');
+  if(!w)return;
   w.classList.remove('open');
-  setTimeout(()=>{if(!w.classList.contains('open'))w.innerHTML='';},350);
+  w.innerHTML='';
   curSlug=null;
   curInfo=null;
   clearMapInfo();
-  document.getElementById('hint').classList.remove('h');
+  clearFlowSide();
+  document.getElementById('hint')?.classList.remove('h');
   resetSel();
-  document.getElementById('av-search').value='';
-  document.getElementById('av-clr').classList.remove('on');
+  const searchEl=document.getElementById('av-search');
+  if(searchEl)searchEl.value='';
+  document.getElementById('av-clr')?.classList.remove('on');
   setActiveQuick(null);
 }
 
 /* ── Zoom na feature ── */
-function zoomToFeat(d){
+function zoomToFeat(d,{animate=true}={}){
   try{
     const [[x0,y0],[x1,y1]]=pg.bounds(d);
     const dx=x1-x0,dy=y1-y0,cx=(x0+x1)/2,cy=(y0+y1)/2;
     const sc=Math.max(1.2,Math.min(8,.82/Math.max(dx/W,dy/H)));
-    sv.transition().duration(650).call(zb.transform,d3.zoomIdentity.translate(W/2,H/2).scale(sc).translate(-cx,-cy));
+    const t=d3.zoomIdentity.translate(W/2,H/2).scale(sc).translate(-cx,-cy);
+    if(animate){
+      sv.transition().duration(650).call(zb.transform,t);
+    }else{
+      sv.call(zb.transform,t);
+    }
   }catch(e){console.warn('Zoom na zemi selhal:',e);}
 }
 
-function zoomToCoords(coords,scale=4.2){
+function zoomToCoords(coords,scale=4.2,{animate=true}={}){
   if(!coords||!prj)return;
   const [x,y]=prj(coords);
-  sv.transition().duration(650).call(zb.transform,d3.zoomIdentity.translate(W/2,H/2).scale(scale).translate(-x,-y));
+  const t=d3.zoomIdentity.translate(W/2,H/2).scale(scale).translate(-x,-y);
+  if(animate){
+    sv.transition().duration(650).call(zb.transform,t);
+  }else{
+    sv.call(zb.transform,t);
+  }
 }
 
 function scrollMapIntoView(){
@@ -674,6 +1046,68 @@ function scrollMapIntoView(){
     mw.scrollIntoView({behavior:'smooth',block:'center'});
   }
 }
+
+function debounce(fn,wait=180){
+  let t=null;
+  return(...args)=>{
+    if(t)clearTimeout(t);
+    t=setTimeout(()=>fn(...args),wait);
+  };
+}
+
+function handleMapResize(){
+  if(!sv||!pg||!prj||!zb)return;
+  const mw=document.getElementById('mw');
+  if(!mw)return;
+  const nextW=mw.clientWidth;
+  const nextH=mw.clientHeight||H||540;
+  if(!nextW||!nextH)return;
+  if(nextW===W && nextH===H)return;
+
+  W=nextW;
+  H=nextH;
+
+  sv.attr('viewBox',`0 0 ${W} ${H}`);
+  prj.scale(W/5.9).translate([W/2,H/2]);
+  pg.projection(prj);
+
+  if(oceanRect)oceanRect.attr('width',W).attr('height',H);
+  if(graticulePath)graticulePath.attr('d',pg);
+  if(countryPaths)countryPaths.attr('d',pg);
+  if(bordersPath)bordersPath.attr('d',pg);
+  if(markerSelection){
+    markerSelection
+      .attr('cx',d=>{
+        const projected=prj(d.info.coords);
+        return projected?projected[0]:null;
+      })
+      .attr('cy',d=>{
+        const projected=prj(d.info.coords);
+        return projected?projected[1]:null;
+      })
+      .attr('display',d=>prj(d.info.coords)?null:'none');
+  }
+
+  zb.extent([[0,0],[W,H]]);
+  sv.call(zb.transform,d3.zoomIdentity);
+  currentZoomK=1;
+  updateMarkerScale();
+  repaintMap();
+
+  if(curInfo){
+    const current=FI.get(normId(curInfo.id))||curInfo;
+    const mapId=mappedIdForInfo(current.id,current);
+    const feat=FM.get(mapId);
+    if(current.coords){
+      zoomToCoords(current.coords,4.2,{animate:false});
+    }else if(feat){
+      zoomToFeat(feat,{animate:false});
+    }
+  }
+  applyLayoutMode();
+}
+
+const debouncedHandleMapResize=debounce(handleMapResize,180);
 
 function setActiveQuick(info=null){
   document.querySelectorAll('.qchip[data-q]').forEach(btn=>{
@@ -1072,7 +1506,7 @@ function setupAdminDiseaseEditor(apiRows,unmatchedApi){
           if(activeDisease===select.value){
             repaintMap();
             renderFilterResults();
-            if(curInfo)renderMapInfo(curInfo,cache.get(curInfo.slug)||null,false);
+            if(curInfo)renderMapInfo(curInfo,getCachedDetail(curInfo.slug),false);
           }
           renderDiseaseList();
         });
@@ -1097,7 +1531,7 @@ function setupAdminDiseaseEditor(apiRows,unmatchedApi){
       if(activeDisease===select.value){
         repaintMap();
         renderFilterResults();
-        if(curInfo)renderMapInfo(curInfo,cache.get(curInfo.slug)||null,false);
+        if(curInfo)renderMapInfo(curInfo,getCachedDetail(curInfo.slug),false);
       }
       renderDiseaseList();
     }
@@ -1264,16 +1698,22 @@ async function initMap(){
     console.warn('Nepřiřazené destinace z API:', unmatchedApi.map(x=>({id:x.id,name:x.name,www:x.www})));
   }
 
+  const seededDiseaseRules=seedDiseaseIndexFromApiRows(api.rows);
+  if(seededDiseaseRules){
+    console.info(`Přednačteno ${seededDiseaseRules} vazeb nemoc→destinace z API seznamu.`);
+  }
+
   sidx=buildIdx();
   setupSearch();
   setupFilters();
+  setupLayoutToggle();
 
   /* Oceán (rect) */
-  const oceanRect=sv.append('rect')
+  oceanRect=sv.append('rect')
     .attr('x',0).attr('y',0).attr('width',W).attr('height',H).attr('fill',MC.ocean);
 
   /* Graticule */
-  sv.append('path').datum(d3.geoGraticule()()).attr('d',pg)
+  graticulePath=sv.append('path').datum(d3.geoGraticule()()).attr('d',pg)
     .attr('fill','none').attr('stroke',MC.grat).attr('stroke-width',.5)
     .style('pointer-events','none');
 
@@ -1285,7 +1725,7 @@ async function initMap(){
   const hl=document.getElementById('hlbl');
 
   /* Render countries */
-  gv.selectAll('path.country')
+  countryPaths=gv.selectAll('path.country')
     .data(feats.features)
     .join('path')
     .attr('class','country')
@@ -1313,7 +1753,7 @@ async function initMap(){
     });
 
   /* Hranice */
-  gv.append('path')
+  bordersPath=gv.append('path')
     .datum(topojson.mesh(wt,wt.objects.countries,(a,b)=>a!==b))
     .attr('d',pg).attr('fill','none').attr('stroke','rgba(255,255,255,0.40)').attr('stroke-width',.55).attr('stroke-linejoin','round').attr('vector-effect','non-scaling-stroke')
     .style('pointer-events','none');
@@ -1321,7 +1761,7 @@ async function initMap(){
   /* Fallback body pro destinace z API, které nejsou v polygonové vrstvě mapy. */
   const virtualDest=[...FI.entries()].filter(([id,info])=>info.has&&info.coords&&(!FM.has(id)||info.virtual||info.mapId));
   const mg=gv.append('g').attr('class','virtual-destinations');
-  mg.selectAll('circle.dest-marker')
+  markerSelection=mg.selectAll('circle.dest-marker')
     .data(virtualDest.map(([id,info])=>({id,info})))
     .join('circle')
     .attr('class','dest-marker')
@@ -1362,6 +1802,12 @@ async function initMap(){
     sv.transition().duration(500).call(zb.transform,d3.zoomIdentity);
     closePanel();
   };
+
+  if(!mapResizeListenersBound){
+    window.addEventListener('resize',debouncedHandleMapResize);
+    window.addEventListener('orientationchange',debouncedHandleMapResize);
+    mapResizeListenersBound=true;
+  }
 }
 
 initMap();
