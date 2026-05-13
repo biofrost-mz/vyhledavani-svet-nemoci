@@ -13,11 +13,5 @@ Verze v20 (technika + funkčnost):
 - bezpečnější externí odkazy (`noopener noreferrer`),
 - oprava mobilních selektorů zoom ovládání.
 
-Verze v21 (varianty zobrazení):
-- přidán přepínač režimu zobrazení (aktuální / krokové),
-- krokové zobrazení na desktopu používá 2sloupcový layout (mapa + sticky souhrn),
-- volba režimu se ukládá do localStorage.
-
 Dokumentace změn:
 - [TECHNIKA_A_FUNKCNOST_V20](docs/TECHNIKA_A_FUNKCNOST_V20.md)
-- [LAYOUT_VARIANTY_V2](docs/LAYOUT_VARIANTY_V2.md)

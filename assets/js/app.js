@@ -27,20 +27,6 @@ const diseaseIndexSource=new Map(); /* diseaseKey → 'detail'|'api-row'|'api-in
 const detailLoading=new Map();
 const detailCache=new Map(); /* slug -> {status:'ok'|'error', ts:number, data?:object} */
 const DETAIL_ERROR_RETRY_MS=90*1000;
-const LAYOUT_MODE_KEY='avenierMapLayoutModeV1';
-const LAYOUT_MODE_CLASS='main-guided';
-let layoutMode='classic';
-
-function loadLayoutMode(){
-  try{
-    const raw=localStorage.getItem(LAYOUT_MODE_KEY);
-    return raw==='guided'?'guided':'classic';
-  }catch(e){
-    return 'classic';
-  }
-}
-
-layoutMode=loadLayoutMode();
 
 const ADMIN_MAP_KEY='avenierMapAdminOverridesV1';
 function loadAdminOverrides(){
@@ -716,117 +702,9 @@ function miniVaxList(data){
   return h?`<div class="mi-vax-groups">${h}</div>`:'';
 }
 
-function isGuidedDesktopLayout(){
-  return layoutMode==='guided' && window.matchMedia('(min-width: 1100px)').matches;
-}
-
-function clearFlowSide(){
-  const side=document.getElementById('flow-side');
-  if(!side)return;
-  side.hidden=true;
-  side.innerHTML='';
-}
-
-function renderFlowSide(info,data=null,loading=false){
-  const side=document.getElementById('flow-side');
-  if(!side||!info)return;
-  const url=info.www||`https://www.ockovacicentrum.cz/cz/${info.slug}`;
-  const {pov,zak,dop}=vaxArrays(data);
-  const np=pov.length, nz=zak.length, nd=dop.length;
-  const flowBadges=data
-    ? `<span class="mi-badge p">${np} povinné</span><span class="mi-badge z">${nz} základní</span><span class="mi-badge d">${nd} doporučené</span>`
-    : (info.has?`<span class="mi-badge">Načítám doporučení…</span>`:`<span class="mi-badge">Bez detailních doporučení</span>`);
-  side.hidden=false;
-  side.innerHTML=`<div class="flow-card">
-    <div class="flow-kicker">Krokový přehled</div>
-    <div class="flow-title">${esc(info.name)}</div>
-    <p class="flow-note">Rychlý 3krokový postup pro klienta: vybrat destinaci, zkontrolovat doporučení, objednat konzultaci.</p>
-    <div class="flow-steps">
-      <div class="flow-step">
-        <div class="flow-step-label">Krok 1</div>
-        <div class="flow-step-title">Vybraná destinace: <strong>${esc(info.name)}</strong></div>
-      </div>
-      <div class="flow-step">
-        <div class="flow-step-label">Krok 2</div>
-        <div class="flow-step-title">Zkontrolujte povinná / základní / doporučená očkování</div>
-        <div class="flow-badges">${flowBadges}</div>
-      </div>
-      <div class="flow-step">
-        <div class="flow-step-label">Krok 3</div>
-        <div class="flow-step-title">Pokračujte na objednání nebo detail destinace</div>
-      </div>
-    </div>
-    ${loading?'<div class="mi-loading">Načítám detail destinace…</div>':''}
-    ${data?miniVaxList(data):'<div class="flow-empty">Po načtení detailu uvidíte i stručný seznam nejdůležitějších položek.</div>'}
-    <div class="flow-actions">
-      <button class="mi-btn secondary" data-flow-action="scroll-detail" type="button">Zobrazit detail níže</button>
-      <a class="mi-btn" href="https://www.ockovacicentrum.cz/cz/kde-ockujeme" target="_blank" rel="noopener noreferrer">Najít očkovací centrum</a>
-      <a class="mi-btn secondary" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Otevřít detail země</a>
-    </div>
-  </div>`;
-
-  side.onclick=e=>{
-    const actionEl=e.target.closest('[data-flow-action]');
-    if(!actionEl)return;
-    if(actionEl.dataset.flowAction==='scroll-detail'){
-      document.getElementById('pnl')?.scrollIntoView({behavior:'smooth',block:'start'});
-    }
-  };
-}
-
-function applyLayoutMode(){
-  const main=document.querySelector('.main');
-  const btn=document.getElementById('layout-toggle');
-  const note=document.getElementById('layout-note');
-  const guided=isGuidedDesktopLayout();
-  if(main){
-    main.classList.toggle(LAYOUT_MODE_CLASS,guided);
-  }
-  if(btn){
-    btn.setAttribute('aria-pressed',layoutMode==='guided'?'true':'false');
-    btn.textContent=layoutMode==='guided'
-      ? 'Přepnout na aktuální zobrazení'
-      : 'Přepnout na krokové zobrazení';
-  }
-  if(note){
-    const showNote=layoutMode==='guided' && !guided;
-    note.hidden=!showNote;
-    note.textContent=showNote?'Krokový režim je připravený pro desktop od šířky 1100 px.':'';
-  }
-  if(curInfo){
-    renderMapInfo(curInfo,getCachedDetail(curInfo.slug),false);
-  }else{
-    clearFlowSide();
-    clearMapInfo();
-  }
-}
-
-function setLayoutMode(mode,{persist=true}={}){
-  layoutMode=mode==='guided'?'guided':'classic';
-  if(persist){
-    try{localStorage.setItem(LAYOUT_MODE_KEY,layoutMode);}catch(e){}
-  }
-  applyLayoutMode();
-}
-
-function setupLayoutToggle(){
-  const btn=document.getElementById('layout-toggle');
-  if(!btn)return;
-  btn.addEventListener('click',()=>{
-    setLayoutMode(layoutMode==='guided'?'classic':'guided');
-  });
-  applyLayoutMode();
-}
-
 function renderMapInfo(info,data=null,loading=false){
   const box=document.getElementById('map-info');
   if(!box||!info)return;
-  if(isGuidedDesktopLayout()){
-    clearMapInfo();
-    renderFlowSide(info,data,loading);
-    return;
-  }
-  clearFlowSide();
   const url=info.www||`https://www.ockovacicentrum.cz/cz/${info.slug}`;
   const {pov,zak,dop}=vaxArrays(data);
   const np=pov.length, nz=zak.length, nd=dop.length;
@@ -1002,7 +880,6 @@ function closePanel(){
   curSlug=null;
   curInfo=null;
   clearMapInfo();
-  clearFlowSide();
   document.getElementById('hint')?.classList.remove('h');
   resetSel();
   const searchEl=document.getElementById('av-search');
@@ -1104,7 +981,6 @@ function handleMapResize(){
       zoomToFeat(feat,{animate:false});
     }
   }
-  applyLayoutMode();
 }
 
 const debouncedHandleMapResize=debounce(handleMapResize,180);
@@ -1706,7 +1582,6 @@ async function initMap(){
   sidx=buildIdx();
   setupSearch();
   setupFilters();
-  setupLayoutToggle();
 
   /* Oceán (rect) */
   oceanRect=sv.append('rect')
