@@ -706,6 +706,7 @@ function renderMapInfo(info,data=null,loading=false){
   const box=document.getElementById('map-info');
   if(!box||!info)return;
   const url=info.www||`https://www.ockovacicentrum.cz/cz/${info.slug}`;
+  const centerUrl='https://www.ockovacicentrum.cz/cz/kde-ockujeme';
   const {pov,zak,dop}=vaxArrays(data);
   const np=pov.length, nz=zak.length, nd=dop.length;
   const badges=data
@@ -720,11 +721,12 @@ function renderMapInfo(info,data=null,loading=false){
   </div>
   <div class="mi-badges">${badges}</div>
   ${data?miniVaxList(data):''}
-  <div class="mi-text">${data?'Rychlý přehled nejčastějších doporučení a rizik vidíte přímo zde. Nejde vždy o kompletní výčet — další informace a všechny proklikové položky najdete v detailu níže.':'Po výběru destinace se detail zobrazí i v panelu pod mapou. Ve fullscreen režimu máte tento rychlý přehled přímo nad mapou.'}</div>
+  <div class="mi-text">${data?'Rychlý přehled slouží jako destinační základ, ne jako finální individuální plán. Finální doporučení vždy potvrďte při konzultaci s lékařem.':'Po výběru destinace se detail zobrazí i v panelu pod mapou. Ve fullscreen režimu máte tento rychlý přehled přímo nad mapou.'}</div>
   ${loading?'<div class="mi-loading">Načítám detail destinace…</div>':''}
   <div class="mi-actions">
-    <button class="mi-btn secondary" data-mi-action="scroll-detail" type="button">Zobrazit detail níže</button>
-    <a class="mi-btn" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Otevřít detail země</a>
+    <a class="mi-btn" href="${esc(centerUrl)}" target="_blank" rel="noopener noreferrer">Najít očkovací centrum</a>
+    <a class="mi-btn secondary" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Otevřít detail země</a>
+    <button class="mi-btn ghost" data-mi-action="scroll-detail" type="button">Zobrazit detail níže</button>
   </div>`;
   box.classList.add('open');
   const scrollToPanel=()=>document.getElementById('pnl')?.scrollIntoView({behavior:'smooth',block:'start'});
@@ -765,15 +767,15 @@ function renderPanel(info){
       </div>
     </div>
     <div class="div"></div>
-    <p class="intro">Doporučení se může lišit podle délky pobytu, konkrétní oblasti, stylu cestování a zdravotního stavu cestovatele. Detail země berte jako rychlý rozcestník pro další ověření.</p>
+    <p class="intro">Detail destinace je orientační přehled. Finální doporučení očkování vždy potvrďte s lékařem podle konkrétní osoby, zdravotního stavu a itineráře.</p>
     <div id="vb"><p class="ml">${info.has?'Načítám vakcinační doporučení…':'Pro tuto destinaci zatím nejsou dostupná detailní doporučení.'}</p></div>
     <div class="cft">
       <div class="actionrow">
-        <a class="bmore" href="${esc(url)}" target="_blank" rel="noopener noreferrer">
-          Zjistit více o zemi
+        <a class="bmore" href="https://www.ockovacicentrum.cz/cz/kde-ockujeme" target="_blank" rel="noopener noreferrer">
+          Najít očkovací centrum
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         </a>
-        <a class="bmore secondary" href="https://www.ockovacicentrum.cz/cz/kde-ockujeme" target="_blank" rel="noopener noreferrer">Najít očkovací centrum</a>
+        <a class="bmore secondary" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Zjistit více o zemi</a>
       </div>
       <span class="ftnote">ockovacicentrum.cz</span>
     </div>
@@ -820,10 +822,23 @@ function sectionTitle(cls,label,key){
   <div class="help-note ${cls}" data-help-note="${esc(key)}">${esc(VAX_HELP[key])}</div>`;
 }
 
+function sectionPillsHtml(items,cls,limit=9){
+  if(items.length<=limit){
+    return `<div class="pills">${items.map(v=>pillHtml(v,cls)).join('')}</div>`;
+  }
+  const shown=items.slice(0,limit);
+  const rest=items.slice(limit);
+  return `<div class="pills">${shown.map(v=>pillHtml(v,cls)).join('')}</div>
+  <details class="pill-more">
+    <summary>Zobrazit dalších ${rest.length}</summary>
+    <div class="pills">${rest.map(v=>pillHtml(v,cls)).join('')}</div>
+  </details>`;
+}
+
 function sectionHtml(cls,label,key,items,emptyText){
   return sectionTitle(cls,label,key)+(
     items.length
-      ? `<div class="pills">${items.map(v=>pillHtml(v,cls)).join('')}</div>`
+      ? sectionPillsHtml(items,cls)
       : `<p class="mt">${esc(emptyText)}</p>`
   );
 }
