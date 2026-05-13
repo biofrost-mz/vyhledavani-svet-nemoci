@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vakcinační mapa světa · Avenier</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Saira:wght@400;500;600&family=Open+Sans:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/map.css">
+</head>
+<body>
+
+<header class="hd">
+  <div class="hd-logo">AVENIER</div>
+  <div><h1 class="hd-title">Vakcinační mapa světa</h1>
+    <p class="hd-sub">Očkovací doporučení podle destinace · <a href="https://www.ockovacicentrum.cz" target="_blank">ockovacicentrum.cz</a></p>
+  </div>
+  <span id="av-status">Načítám…</span>
+</header>
+
+<div class="sw">
+  <div class="si">
+    <span class="sico" aria-hidden="true">&#9906;</span>
+    <input id="av-search" type="text" placeholder="Hledat zemi… (např. Vietnam, Keňa, Brazílie)" autocomplete="off" aria-label="Vyhledat zemi">
+    <button class="sclr" id="av-clr" aria-label="Vymazat">&#215;</button>
+  </div>
+  <div id="av-dd" role="listbox"></div>
+</div>
+
+<div class="filters" aria-label="Filtrace destinací podle nemoci">
+  <div class="fbox">
+    <span class="flbl">Filtr podle nemoci</span>
+    <button class="fbtn reset active" data-disease="all" type="button">Všechny destinace</button>
+    <span class="dctrl"><button class="fbtn" data-disease="yellow-fever" type="button">Žlutá zimnice</button><a class="dlink" href="https://www.ockovacicentrum.cz/cz/zluta-zimnice" target="_blank" rel="noopener" aria-label="Otevřít detail nemoci: Žlutá zimnice">↗</a></span>
+    <span class="dctrl"><button class="fbtn" data-disease="typhoid" type="button">Břišní tyfus</button><a class="dlink" href="https://www.ockovacicentrum.cz/cz/brisni-tyfus" target="_blank" rel="noopener" aria-label="Otevřít detail nemoci: Břišní tyfus">↗</a></span>
+    <span class="dctrl"><button class="fbtn" data-disease="dengue" type="button">Horečka Dengue</button><a class="dlink" href="https://www.ockovacicentrum.cz/cz/horecka-dengue" target="_blank" rel="noopener" aria-label="Otevřít detail nemoci: Horečka Dengue">↗</a></span>
+    <span class="dctrl"><button class="fbtn" data-disease="rabies" type="button">Vzteklina</button><a class="dlink" href="https://www.ockovacicentrum.cz/cz/vzteklina" target="_blank" rel="noopener" aria-label="Otevřít detail nemoci: Vzteklina">↗</a></span>
+    <span class="dctrl"><button class="fbtn" data-disease="japanese-encephalitis" type="button">Japonská encefalitida</button><a class="dlink" href="https://www.ockovacicentrum.cz/cz/japonska-encefalitida" target="_blank" rel="noopener" aria-label="Otevřít detail nemoci: Japonská encefalitida">↗</a></span>
+    <details class="more-diseases">
+      <summary>Další nemoci a rizika</summary>
+      <div class="more-grid">
+        <span class="dctrl"><button class="fbtn" data-disease="cholera" type="button">Cholera</button><a class="dlink" href="https://www.ockovacicentrum.cz/cz/cholera" target="_blank" rel="noopener" aria-label="Otevřít detail nemoci: Cholera">↗</a></span>
+        <span class="dctrl"><button class="fbtn" data-disease="hepatitis-a" type="button">Žloutenka A</button><a class="dlink" href="https://www.ockovacicentrum.cz/cz/zloutenka-typu-a" target="_blank" rel="noopener" aria-label="Otevřít detail nemoci: Žloutenka typu A">↗</a></span>
+        <span class="dctrl"><button class="fbtn" data-disease="hepatitis-b" type="button">Žloutenka B</button><a class="dlink" href="https://www.ockovacicentrum.cz/cz/zloutenka-typu-b" target="_blank" rel="noopener" aria-label="Otevřít detail nemoci: Žloutenka typu B">↗</a></span>
+        <span class="dctrl"><button class="fbtn" data-disease="polio" type="button">Dětská obrna</button><a class="dlink" href="https://www.ockovacicentrum.cz/cz/detska-obrna" target="_blank" rel="noopener" aria-label="Otevřít detail nemoci: Dětská obrna">↗</a></span>
+        <span class="dctrl"><button class="fbtn" data-disease="meningococcus" type="button">Meningokok</button><a class="dlink" href="https://www.ockovacicentrum.cz/cz/meningokokove-nakazy" target="_blank" rel="noopener" aria-label="Otevřít detail nemoci: Meningokokové nákazy">↗</a></span>
+        <span class="dctrl"><button class="fbtn" data-disease="malaria" type="button">Malárie</button><a class="dlink" href="https://www.ockovacicentrum.cz/cz/malarie" target="_blank" rel="noopener" aria-label="Otevřít detail nemoci: Malárie">↗</a></span>
+        <span class="dctrl"><button class="fbtn" data-disease="tick-borne-encephalitis" type="button">Klíšťová encefalitida</button><a class="dlink" href="https://www.ockovacicentrum.cz/cz/klistova-encefalitida" target="_blank" rel="noopener" aria-label="Otevřít detail nemoci: Klíšťová encefalitida">↗</a></span>
+        <span class="dctrl"><button class="fbtn" data-disease="measles" type="button">Spalničky</button><a class="dlink" href="https://www.ockovacicentrum.cz/cz/spalnicky" target="_blank" rel="noopener" aria-label="Otevřít detail nemoci: Spalničky">↗</a></span>
+        <span class="dctrl"><button class="fbtn" data-disease="flu" type="button">Chřipka</button><a class="dlink" href="https://www.ockovacicentrum.cz/cz/ockovani-proti-chripce-sezona-2025-2026" target="_blank" rel="noopener" aria-label="Otevřít detail nemoci: Chřipka">↗</a></span>
+      </div>
+    </details>
+    <span class="fstatus" id="filter-status">Vyberte nemoc a mapa zvýrazní země, kde ji API uvádí.</span>
+    <div class="fbar" id="filter-loader"><span></span></div>
+  </div>
+</div>
+
+<div class="quick" aria-label="Rychlé destinace">
+  <button class="qchip" data-q="Egypt" type="button">Egypt</button>
+  <button class="qchip" data-q="Turecko" type="button">Turecko</button>
+  <button class="qchip" data-q="Thajsko" type="button">Thajsko</button>
+  <button class="qchip" data-q="Vietnam" type="button">Vietnam</button>
+  <button class="qchip" data-q="Keňa" type="button">Keňa</button>
+  <button class="qchip" data-q="Mexiko" type="button">Mexiko</button>
+</div>
+
+<main class="main">
+  <div id="mw">
+    <svg id="av-map"></svg>
+    <div id="hlbl" aria-hidden="true"></div>
+    <div id="hint">Klikněte nebo vyhledejte zemi pro vakcinační doporučení</div>
+    <div id="map-info" class="map-info" aria-live="polite"></div>
+    <div id="zc">
+      <button class="zbtn" id="zi" title="Přiblížit">+</button>
+      <button class="zbtn" id="zo" title="Oddálit">−</button>
+      <button class="zbtn sm" id="zr" title="Výchozí pohled">&#8962;</button>
+    </div>
+  </div>
+  <div id="filter-results" class="filter-results" aria-live="polite"></div>
+  <div id="pnl"></div>
+  <div class="leg">
+    <div class="li"><span class="ld" id="ln"></span><span>Žádná data v API</span></div>
+    <div class="li"><span class="ld" id="lh"></span><span>Data dostupná / bez filtru</span></div>
+    <div class="li"><span class="ld" style="background:#006778"></span><span>Aktivní výběr</span></div>
+    <span class="lh">Táhnutím pohyb · kolečkem zoom</span>
+  </div>
+  <div class="dbg" id="debug-panel"></div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<script src="assets/js/config.js"></script>
+<script src="assets/js/app.js"></script>
+</body>
+</html>
