@@ -394,7 +394,7 @@ a:hover{color:var(--oc-green)}
 
 /* ==== v13 layout, mobile and width refinements ==== */
 :root{--oc-magenta:#ca005D}
-.hd,.sw,.filters,.quick,.main{max-width:1360px}
+.hd,.sw,.filters,.quick,.main{max-width:1430px}
 .hd{align-items:center}
 .test-badge,#av-status{
   min-height:34px;
@@ -422,7 +422,7 @@ a:hover{color:var(--oc-green)}
 #av-map{height:620px}
 .map-info{width:min(390px,calc(100% - 28px))}
 @media(min-width:1500px){
-  .hd,.sw,.filters,.quick,.main{max-width:1480px}
+  .hd,.sw,.filters,.quick,.main{max-width:1430px}
   #mw,#av-map{height:660px}
 }
 @media(max-width:900px){
@@ -494,7 +494,7 @@ a:hover{color:var(--oc-green)}
 
 .info-hub.info-hub-full{
   width:auto;
-  max-width:1360px!important;
+  max-width:1430px!important;
   padding:0 24px!important;
   margin:10px auto 0;
 }
