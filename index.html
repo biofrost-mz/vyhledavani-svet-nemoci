@@ -18,7 +18,7 @@
   <span class="test-badge">TESTOVACÍ VERZE</span><span id="av-status">Načítám…</span>
 </header>
 
-<section class="info-hub" aria-label="Důležité upozornění">
+<section class="info-hub info-hub-full" aria-label="Důležité upozornění">
   <div class="legal-alert">
     <strong>Důležité upozornění:</strong> Doporučení se může lišit podle délky pobytu, konkrétní oblasti, stylu cestování a zdravotního stavu cestovatele. Tato aplikace nenahrazuje vyšetření ani doporučení lékaře a slouží pouze jako orientační přehled.
   </div>
@@ -36,6 +36,10 @@
 <div class="filters" aria-label="Filtrace destinací podle nemoci">
   <div class="fbox">
     <span class="flbl">Filtr podle nemoci</span>
+    <details class="finfo">
+      <summary aria-label="Informace k filtru" title="Informace k filtru">i</summary>
+      <div class="finfo-pop">Zobrazen je výběr nejčastějších nemocí a rizik. Nejde o kompletní výčet — další doporučení a proklikové informace najdete po výběru destinace v detailu níže.</div>
+    </details>
     <button class="fbtn reset active" data-disease="all" type="button">Všechny destinace</button>
     <span class="dctrl"><button class="fbtn" data-disease="yellow-fever" type="button">Žlutá zimnice</button><a class="dlink" href="https://www.ockovacicentrum.cz/cz/zluta-zimnice" target="_blank" rel="noopener noreferrer" aria-label="Otevřít detail nemoci: Žlutá zimnice">↗</a></span>
     <span class="dctrl"><button class="fbtn" data-disease="typhoid" type="button">Břišní tyfus</button><a class="dlink" href="https://www.ockovacicentrum.cz/cz/brisni-tyfus" target="_blank" rel="noopener noreferrer" aria-label="Otevřít detail nemoci: Břišní tyfus">↗</a></span>
@@ -59,7 +63,6 @@
     <span class="fstatus" id="filter-status">Vyberte nemoc nebo riziko a mapa zvýrazní relevantní destinace.</span>
     <div class="fbar" id="filter-loader"><span></span></div>
   </div>
-  <p class="faux-note">Zobrazen je výběr nejčastějších nemocí a rizik. Nejde o kompletní výčet — další doporučení a proklikové informace najdete po výběru destinace v detailu níže.</p>
 </div>
 
 <div class="quick" aria-label="Rychlé destinace">

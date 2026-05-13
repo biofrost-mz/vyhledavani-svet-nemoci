@@ -760,10 +760,13 @@ function renderPanel(info){
 
   wrap.innerHTML=`<div class="card">
     <div class="chd">
-      <div><p class="dlbl">Vybraná destinace</p><h2 class="dname">${esc(info.name)}</h2></div>
+      <div>
+        <p class="dlbl">Vybraná destinace</p>
+        <h2 class="dname">${esc(info.name)}</h2>
+        <div class="vcnts" id="vcc"></div>
+      </div>
       <div class="hdr">
         <button class="bclose" id="bcl">Zavřít ✕</button>
-        <div class="vcnts" id="vcc"></div>
       </div>
     </div>
     <div class="div"></div>
@@ -821,15 +824,8 @@ function sectionTitle(cls,label,key){
   <div class="help-note ${cls}" data-help-note="${esc(key)}">${esc(VAX_HELP[key])}</div>`;
 }
 
-function sectionPillsHtml(items,cls,limit=9){
-  if(items.length<=limit){
-    return `<div class="pills">${items.map(v=>pillHtml(v,cls)).join('')}</div>`;
-  }
-  const shown=items.slice(0,limit);
-  const rest=items.slice(limit);
-  return `<div class="pills">${shown.map(v=>pillHtml(v,cls)).join('')}</div>
-  <button class="pill-expand" type="button" data-pill-expand>Zobrazit dalších ${rest.length}+</button>
-  <div class="pills pills-rest" hidden>${rest.map(v=>pillHtml(v,cls)).join('')}</div>`;
+function sectionPillsHtml(items,cls){
+  return `<div class="pills">${items.map(v=>pillHtml(v,cls)).join('')}</div>`;
 }
 
 function sectionHtml(cls,label,key,items,emptyText){
@@ -846,18 +842,6 @@ function setupHelpButtons(root=document){
       const key=btn.dataset.help;
       const note=btn.closest('#vb')?.querySelector(`[data-help-note="${CSS.escape(key)}"]`) || document.querySelector(`[data-help-note="${CSS.escape(key)}"]`);
       if(note)note.classList.toggle('open');
-    });
-  });
-}
-
-function setupPillExpanders(root=document){
-  root.querySelectorAll('[data-pill-expand]').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      const hiddenPills=btn.nextElementSibling;
-      if(hiddenPills && hiddenPills.classList.contains('pills-rest')){
-        hiddenPills.hidden=false;
-      }
-      btn.remove();
     });
   });
 }
@@ -894,7 +878,6 @@ function renderVax(data){
 
   vb.innerHTML=h;
   setupHelpButtons(vb);
-  setupPillExpanders(vb);
 }
 
 function closePanel(){
