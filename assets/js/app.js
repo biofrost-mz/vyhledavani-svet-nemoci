@@ -32,6 +32,54 @@ function loadAdminOverrides(){
 }
 let CUSTOM_DESTINATION_MAP=loadAdminOverrides();
 
+const ADMIN_DISEASE_KEY='avenierMapDiseaseOverridesV1';
+function loadDiseaseOverrides(){
+  try{
+    const raw=localStorage.getItem(ADMIN_DISEASE_KEY);
+    return raw?JSON.parse(raw):{};
+  }catch(e){
+    return {};
+  }
+}
+let CUSTOM_DISEASE_OVERRIDES=loadDiseaseOverrides();
+
+function saveDiseaseOverrides(){
+  localStorage.setItem(ADMIN_DISEASE_KEY,JSON.stringify(CUSTOM_DISEASE_OVERRIDES,null,2));
+}
+
+function getDiseaseOverride(key){
+  if(!CUSTOM_DISEASE_OVERRIDES[key]){
+    CUSTOM_DISEASE_OVERRIDES[key]={include:[],exclude:[]};
+  }
+  return CUSTOM_DISEASE_OVERRIDES[key];
+}
+
+function setDiseaseOverride(key,id,mode){
+  const nid=String(id);
+  const o=getDiseaseOverride(key);
+  o.include=(o.include||[]).filter(x=>String(x)!==nid);
+  o.exclude=(o.exclude||[]).filter(x=>String(x)!==nid);
+  if(mode==='include')o.include.push(nid);
+  if(mode==='exclude')o.exclude.push(nid);
+  saveDiseaseOverrides();
+}
+
+function clearDiseaseOverrides(key=null){
+  if(key){
+    delete CUSTOM_DISEASE_OVERRIDES[key];
+  }else{
+    CUSTOM_DISEASE_OVERRIDES={};
+  }
+  saveDiseaseOverrides();
+}
+
+function setToSetValues(arr){
+  return new Set((arr||[]).map(x=>{
+    const n=Number(x);
+    return Number.isFinite(n)?n:x;
+  }));
+}
+
 function normId(id){
   const n=Number(id);
   return Number.isFinite(n)?n:id;
@@ -272,7 +320,14 @@ async function buildDiseaseIndex(key){
 }
 
 function effectiveDiseaseHits(key){
-  return diseaseIndex.get(key)||new Set();
+  const base=new Set([...(diseaseIndex.get(key)||new Set())]);
+  const o=CUSTOM_DISEASE_OVERRIDES[key];
+  if(!o)return base;
+  const inc=setToSetValues(o.include);
+  const exc=setToSetValues(o.exclude);
+  inc.forEach(id=>base.add(id));
+  exc.forEach(id=>base.delete(id));
+  return base;
 }
 
 function diseaseContainsMapId(key,id){
@@ -311,7 +366,8 @@ function renderFilterResults(){
   box.innerHTML=`<div class="fr-head">
     <div>
       <div class="fr-title">${esc(cfg?.label||'Vybraný filtr')} – destinace v aktuálním filtru</div>
-      <div class="fr-sub">${hits.length} destinací podle aktuálně načtených doporučení. Kliknutím na destinaci otevřete detail v mapě. Další související nemoci a rizika najdete po otevření detailu destinace.</div>
+      <div class="fr-count"><strong>${hits.length}</strong> destinací</div>
+      <div class="fr-sub">Kliknutím na destinaci otevřete detail v mapě. Další související nemoci a rizika najdete po otevření detailu destinace.</div>
     </div>
   </div>
   ${hits.length?`<div class="fr-grid">${chips}</div>`:`<div class="fr-empty">Pro tento filtr se zatím nepodařilo najít žádnou destinaci. Může jít o riziko, které zatím není u destinací jednotně vedené.</div>`}`;
@@ -337,6 +393,7 @@ function repaintMap(){
 
 async function setDiseaseFilter(key){
   activeDisease=key||'all';
+  scrollMapIntoView();
   document.querySelectorAll('.fbtn[data-disease]').forEach(btn=>{
     btn.classList.toggle('active',btn.dataset.disease===activeDisease);
   });
@@ -352,7 +409,9 @@ async function setDiseaseFilter(key){
     return;
   }
 
-  await buildDiseaseIndex(activeDisease);
+  const hits=await buildDiseaseIndex(activeDisease);
+  const status=document.getElementById('filter-status');
+  if(status)status.textContent=`${DISEASES[activeDisease].label}: zvýrazněno ${hits.size} destinací.`;
   repaintMap();
   renderFilterResults();
   if(curInfo)renderMapInfo(curInfo,cache.get(curInfo.slug)||null,false);
@@ -396,17 +455,27 @@ function miniPillHtml(v,cls='d'){
   return `<span class="mi-pill ${cls}">${name}</span>`;
 }
 
+function miniGroupHtml(label,items,cls,limit=3){
+  if(!items.length)return '';
+  const shown=items.slice(0,limit);
+  const more=items.length-shown.length;
+  return `<div class="mi-vax-row ${cls}">
+    <span class="mi-row-label">${esc(label)}</span>
+    <div class="mi-row-pills">
+      ${shown.map(v=>miniPillHtml(v,cls)).join('')}
+      ${more>0?`<button class="mi-more" id="mi-more-detail" type="button">… a ${more} dalších</button>`:''}
+    </div>
+  </div>`;
+}
+
 function miniVaxList(data){
   const {pov,zak,dop}=vaxArrays(data);
-  const all=[
-    ...pov.map(v=>({v,cls:'p'})),
-    ...zak.map(v=>({v,cls:'z'})),
-    ...dop.map(v=>({v,cls:'d'}))
-  ];
-  if(!all.length)return '';
-  const shown=all.slice(0,6);
-  const more=all.length-shown.length;
-  return `<div class="mi-mini">${shown.map(({v,cls})=>miniPillHtml(v,cls)).join('')}${more>0?`<button class="mi-more" id="mi-more-detail" type="button">… a ${more} dalších</button>`:''}</div>`;
+  const h=[
+    miniGroupHtml('Povinná',pov,'p',2),
+    miniGroupHtml('Základní',zak,'z',3),
+    miniGroupHtml('Doporučená',dop,'d',3)
+  ].join('');
+  return h?`<div class="mi-vax-groups">${h}</div>`:'';
 }
 
 function renderMapInfo(info,data=null,loading=false){
@@ -596,6 +665,16 @@ function zoomToCoords(coords,scale=4.2){
   sv.transition().duration(650).call(zb.transform,d3.zoomIdentity.translate(W/2,H/2).scale(scale).translate(-x,-y));
 }
 
+function scrollMapIntoView(){
+  const mw=document.getElementById('mw');
+  if(!mw)return;
+  const rect=mw.getBoundingClientRect();
+  const vh=window.innerHeight||document.documentElement.clientHeight;
+  if(rect.top<vh*.18 || rect.bottom>vh*.86){
+    mw.scrollIntoView({behavior:'smooth',block:'center'});
+  }
+}
+
 function setActiveQuick(info=null){
   document.querySelectorAll('.qchip[data-q]').forEach(btn=>{
     if(!info){btn.classList.remove('active');return;}
@@ -638,6 +717,7 @@ function selectCountry(numId){
   document.getElementById('av-dd').classList.remove('open');
 
   setActiveQuick(info);
+  scrollMapIntoView();
   renderPanel(info);
 }
 
@@ -789,14 +869,15 @@ function renderAdminPanel(apiRows,unmatchedApi){
   const rows=[...apiRows].sort((a,b)=>String(a.name||a.id).localeCompare(String(b.name||b.id),'cs'));
   const unmatchedKeys=new Set(unmatchedApi.map(r=>slugKey(r.id||r.slug||r.name)));
   const customCount=Object.keys(CUSTOM_DESTINATION_MAP||{}).length;
+  const diseaseCustomCount=Object.values(CUSTOM_DISEASE_OVERRIDES||{}).reduce((sum,o)=>sum+(o.include?.length||0)+(o.exclude?.length||0),0);
 
   panel.innerHTML=`<div class="adm-head">
     <div>
       <div class="adm-kicker">Admin / ladění mapování</div>
       <h2 class="adm-title">Ruční úpravy destinací</h2>
-      <p class="adm-note">Tento panel slouží jen pro testování. Úpravy se ukládají do localStorage tohoto prohlížeče. Po ověření použijte export a hodnoty přeneste do <code>API_DESTINATION_MAP</code> v <code>assets/js/config.js</code>.</p>
+      <p class="adm-note">Tento panel slouží jen pro testování. Úpravy se ukládají do localStorage tohoto prohlížeče. Po ověření použijte export a hodnoty přeneste do <code>API_DESTINATION_MAP</code> nebo do pravidel filtrů v <code>assets/js/config.js</code>.</p>
     </div>
-    <span class="adm-badge">${customCount} lokálních úprav</span>
+    <span class="adm-badge">${customCount} mapování · ${diseaseCustomCount} filtrů</span>
   </div>
   <div class="adm-grid">
     <div class="adm-card">
@@ -824,6 +905,22 @@ function renderAdminPanel(apiRows,unmatchedApi){
       <div class="adm-help" id="adm-help">Postup: vyberte destinaci vlevo, doplňte mapId nebo souřadnice, uložte lokálně a obnovte stránku. Pro trvalé nasazení exportujte JSON a přeneste ho do config.js.</div>
       <div class="adm-export"><textarea id="adm-export" readonly placeholder="Zde se zobrazí export pro config.js"></textarea></div>
     </div>
+  </div>
+  <div class="adm-card adm-disease-card">
+    <div class="adm-disease-head">
+      <div>
+        <h3>Úpravy filtrů nemocí</h3>
+        <p class="adm-mini-note">Vyberte nemoc a určete, které destinace se mají ručně přidat nebo skrýt ve výsledcích pod mapou. Režim <strong>Auto</strong> nechává rozhodnutí na datech z doporučení.</p>
+      </div>
+      <div class="adm-field adm-disease-select"><label>Nemoc / riziko</label><select id="adm-disease-select"></select></div>
+    </div>
+    <input class="adm-search" id="adm-disease-search" type="search" placeholder="Hledat destinaci ve filtru">
+    <div class="adm-disease-list" id="adm-disease-list"></div>
+    <div class="adm-actions">
+      <button class="adm-btn" id="adm-disease-export-btn" type="button">Exportovat úpravy filtrů</button>
+      <button class="adm-btn danger" id="adm-disease-clear" type="button">Vyčistit filtr</button>
+    </div>
+    <div class="adm-export"><textarea id="adm-disease-export" readonly placeholder="Zde se zobrazí export úprav filtrů"></textarea></div>
   </div>`;
 
   const list=document.getElementById('adm-list');
@@ -914,6 +1011,97 @@ function renderAdminPanel(apiRows,unmatchedApi){
       renderAdminPanel(apiRows,unmatchedApi);
     }
   });
+
+  setupAdminDiseaseEditor(apiRows,unmatchedApi);
+}
+
+function setupAdminDiseaseEditor(apiRows,unmatchedApi){
+  const select=document.getElementById('adm-disease-select');
+  const search=document.getElementById('adm-disease-search');
+  const list=document.getElementById('adm-disease-list');
+  if(!select||!search||!list)return;
+
+  const destinationRows=[...FI.entries()]
+    .filter(([,info])=>info.has)
+    .map(([id,info])=>({id,info}))
+    .sort((a,b)=>a.info.name.localeCompare(b.info.name,'cs'));
+
+  select.innerHTML=Object.entries(DISEASES).map(([key,cfg])=>`<option value="${esc(key)}">${esc(cfg.label)}</option>`).join('');
+  if(activeDisease&&activeDisease!=='all'&&DISEASES[activeDisease])select.value=activeDisease;
+
+  function modeFor(key,id){
+    const o=getDiseaseOverride(key);
+    const sid=String(id);
+    if((o.include||[]).map(String).includes(sid))return 'include';
+    if((o.exclude||[]).map(String).includes(sid))return 'exclude';
+    return 'auto';
+  }
+
+  function renderDiseaseList(){
+    const key=select.value;
+    const q=slugKey(search.value);
+    const base=effectiveDiseaseHits(key);
+    const rows=destinationRows.filter(({id,info})=>{
+      const hay=slugKey([info.name,info.slug,info.search].filter(Boolean).join(' '));
+      return !q||hay.includes(q);
+    });
+
+    list.innerHTML=rows.map(({id,info})=>{
+      const mode=modeFor(key,id);
+      const autoBase=(diseaseIndex.get(key)||new Set()).has(id);
+      const visible=base.has(id);
+      return `<div class="adm-disease-row" data-id="${esc(id)}">
+        <div>
+          <strong>${esc(info.name)}</strong>
+          <code>${esc(info.slug||id)}</code>
+          <span class="adm-disease-state ${visible?'on':'off'}">${visible?'zobrazuje se':'skryto'}${autoBase?' · auto':''}</span>
+        </div>
+        <div class="adm-toggle">
+          <button type="button" class="${mode==='auto'?'active':''}" data-mode="auto">Auto</button>
+          <button type="button" class="${mode==='include'?'active':''}" data-mode="include">Zobrazit</button>
+          <button type="button" class="${mode==='exclude'?'active':''}" data-mode="exclude">Skrýt</button>
+        </div>
+      </div>`;
+    }).join('')||'<div class="adm-empty">Nic nenalezeno.</div>';
+
+    list.querySelectorAll('.adm-disease-row').forEach(row=>{
+      const id=normId(row.dataset.id);
+      row.querySelectorAll('[data-mode]').forEach(btn=>{
+        btn.addEventListener('click',()=>{
+          setDiseaseOverride(select.value,id,btn.dataset.mode);
+          if(activeDisease===select.value){
+            repaintMap();
+            renderFilterResults();
+            if(curInfo)renderMapInfo(curInfo,cache.get(curInfo.slug)||null,false);
+          }
+          renderDiseaseList();
+        });
+      });
+    });
+  }
+
+  select.addEventListener('change',renderDiseaseList);
+  search.addEventListener('input',renderDiseaseList);
+  renderDiseaseList();
+
+  document.getElementById('adm-disease-export-btn')?.addEventListener('click',()=>{
+    const out=document.getElementById('adm-disease-export');
+    out.value=`/* Lokální admin export – úpravy filtrů nemocí */\n${JSON.stringify(CUSTOM_DISEASE_OVERRIDES,null,2)}`;
+    out.focus();
+    out.select();
+  });
+
+  document.getElementById('adm-disease-clear')?.addEventListener('click',()=>{
+    if(confirm('Vyčistit ruční úpravy pro aktuálně vybraný filtr?')){
+      clearDiseaseOverrides(select.value);
+      if(activeDisease===select.value){
+        repaintMap();
+        renderFilterResults();
+        if(curInfo)renderMapInfo(curInfo,cache.get(curInfo.slug)||null,false);
+      }
+      renderDiseaseList();
+    }
+  });
 }
 
 function renderDebugPanel(apiRows,unmatchedApi){
@@ -955,7 +1143,7 @@ async function initMap(){
   W=mw.clientWidth;
   H=mw.clientHeight||540;
   sv=d3.select('#av-map').attr('viewBox',`0 0 ${W} ${H}`);
-  prj=d3.geoNaturalEarth1().scale(W/6.4).translate([W/2,H/2]);
+  prj=d3.geoNaturalEarth1().scale(W/5.9).translate([W/2,H/2]);
   pg=d3.geoPath().projection(prj);
 
   /* Features */

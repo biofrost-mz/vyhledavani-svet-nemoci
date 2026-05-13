@@ -624,3 +624,165 @@ a:hover{color:var(--oc-green)}
   .admin-panel{padding:18px 14px;border-radius:20px}
   .adm-head{flex-direction:column}
 }
+
+
+/* ==== v15 interaction refinements ==== */
+.mi-vax-groups{display:grid;gap:9px;margin:0 0 12px;padding-top:2px}
+.mi-vax-row{
+  display:grid;
+  grid-template-columns:84px 1fr;
+  gap:8px;
+  align-items:start;
+  padding:7px 0;
+  border-top:1px solid rgba(0,103,120,.09);
+}
+.mi-vax-row:first-child{border-top:none}
+.mi-row-label{
+  font-family:'Saira',sans-serif;
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:#72817b;
+  padding-top:6px;
+}
+.mi-row-pills{display:flex;flex-wrap:wrap;gap:6px}
+.fr-count{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  width:max-content;
+  margin:7px 0 6px;
+  padding:6px 11px;
+  border-radius:999px;
+  background:rgba(120,190,32,.13);
+  border:1px solid rgba(120,190,32,.30);
+  color:#3d6b0a;
+  font-family:'Saira',sans-serif;
+  font-size:12px;
+  font-weight:600;
+}
+.fr-count strong{font-size:15px;color:#2f5f09}
+.card::after{
+  top:auto!important;
+  right:auto!important;
+  left:-72px!important;
+  bottom:-82px!important;
+  width:240px!important;
+  height:240px!important;
+  border-radius:50%!important;
+  background:radial-gradient(circle,rgba(120,190,32,.18),rgba(0,103,120,.08) 54%,transparent 68%)!important;
+  border:28px solid rgba(0,103,120,.055);
+  transform:none!important;
+}
+@media(max-width:640px){
+  .mi-vax-row{grid-template-columns:1fr;gap:5px}
+  .mi-row-label{padding-top:0}
+}
+
+
+/* ==== v16 admin disease filters + destination pattern ==== */
+.card::after{
+  top:-86px!important;
+  left:-86px!important;
+  right:auto!important;
+  bottom:auto!important;
+  width:260px!important;
+  height:260px!important;
+  border:none!important;
+  border-radius:50%!important;
+  background:
+    radial-gradient(circle at center,
+      rgba(120,190,32,.26) 0%,
+      rgba(0,103,120,.14) 42%,
+      rgba(255,255,255,.78) 67%,
+      rgba(255,255,255,0) 72%)!important;
+  opacity:.95;
+}
+.adm-disease-card{grid-column:1/-1}
+.adm-disease-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:12px}
+.adm-mini-note{font-size:12px;color:var(--oc-muted);line-height:1.6;max-width:760px}
+.adm-disease-select{min-width:240px}
+.adm-field select{
+  width:100%;
+  border:1px solid rgba(0,103,120,.16);
+  border-radius:12px;
+  padding:10px 11px;
+  font-size:13px;
+  color:var(--oc-text);
+  background:#fff;
+  outline:none;
+}
+.adm-field select:focus{border-color:var(--oc-green);box-shadow:0 0 0 4px rgba(120,190,32,.10)}
+.adm-disease-list{display:grid;gap:8px;max-height:430px;overflow:auto;padding-right:3px}
+.adm-disease-row{
+  display:grid;
+  grid-template-columns:minmax(220px,1fr) auto;
+  gap:14px;
+  align-items:center;
+  padding:10px 11px;
+  border-radius:14px;
+  background:#f8fbf9;
+  border:1px solid rgba(0,103,120,.11);
+}
+.adm-disease-row strong{display:block;font-family:'Saira',sans-serif;font-size:13px;color:var(--oc-text)}
+.adm-disease-row code{font-size:11px;color:#7b8781;word-break:break-all}
+.adm-disease-state{
+  display:inline-flex;
+  margin-top:5px;
+  padding:3px 8px;
+  border-radius:999px;
+  font-family:'Saira',sans-serif;
+  font-size:10px;
+  font-weight:700;
+}
+.adm-disease-state.on{background:rgba(120,190,32,.14);color:#3d6b0a}
+.adm-disease-state.off{background:rgba(202,0,93,.08);color:#9d0048}
+.adm-toggle{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
+.adm-toggle button{
+  border:1px solid rgba(0,103,120,.14);
+  background:#fff;
+  color:#53645f;
+  border-radius:999px;
+  padding:6px 9px;
+  font-family:'Saira',sans-serif;
+  font-size:11px;
+  font-weight:700;
+  cursor:pointer;
+}
+.adm-toggle button.active{
+  background:var(--oc-green);
+  border-color:var(--oc-green);
+  color:#fff;
+}
+.adm-toggle button[data-mode="exclude"].active{
+  background:#ca005D;
+  border-color:#ca005D;
+}
+@media(max-width:760px){
+  .adm-disease-head{flex-direction:column}
+  .adm-disease-select{min-width:0;width:100%}
+  .adm-disease-row{grid-template-columns:1fr}
+  .adm-toggle{justify-content:flex-start}
+}
+
+
+/* ==== v17 destination card pattern correction ==== */
+.card::after{
+  top:-58px!important;
+  right:-58px!important;
+  left:auto!important;
+  bottom:auto!important;
+  width:210px!important;
+  height:210px!important;
+  border:none!important;
+  border-radius:50%!important;
+  background:
+    radial-gradient(circle at center,
+      rgba(120,190,32,.15) 0%,
+      rgba(0,103,120,.07) 44%,
+      rgba(255,255,255,.75) 68%,
+      rgba(255,255,255,0) 74%)!important;
+  opacity:1!important;
+  transform:none!important;
+}
