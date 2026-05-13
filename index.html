@@ -8,14 +8,14 @@
 <link href="https://fonts.googleapis.com/css2?family=Saira:wght@400;500;600&family=Open+Sans:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/css/map.css">
 </head>
-<body>
+<body class="oc-map-page">
 
 <header class="hd">
   <div class="hd-logo">AVENIER</div>
   <div><h1 class="hd-title">Vakcinační mapa světa</h1>
     <p class="hd-sub">Očkovací doporučení podle destinace · <a href="https://www.ockovacicentrum.cz" target="_blank">ockovacicentrum.cz</a></p>
   </div>
-  <span id="av-status">Načítám…</span>
+  <span class="test-badge">TESTOVACÍ VERZE</span><span id="av-status">Načítám…</span>
 </header>
 
 <div class="sw">
@@ -50,7 +50,8 @@
         <span class="dctrl"><button class="fbtn" data-disease="flu" type="button">Chřipka</button><a class="dlink" href="https://www.ockovacicentrum.cz/cz/ockovani-proti-chripce-sezona-2025-2026" target="_blank" rel="noopener" aria-label="Otevřít detail nemoci: Chřipka">↗</a></span>
       </div>
     </details>
-    <span class="fstatus" id="filter-status">Vyberte nemoc a mapa zvýrazní země, kde ji API uvádí.</span>
+    <p class="faux-note">Zobrazen je výběr nejčastějších nemocí a rizik. Nejde o kompletní výčet — další doporučení a proklikové informace najdete po výběru destinace v detailu níže.</p>
+    <span class="fstatus" id="filter-status">Vyberte nemoc nebo riziko a mapa zvýrazní relevantní destinace.</span>
     <div class="fbar" id="filter-loader"><span></span></div>
   </div>
 </div>
@@ -79,12 +80,13 @@
   <div id="filter-results" class="filter-results" aria-live="polite"></div>
   <div id="pnl"></div>
   <div class="leg">
-    <div class="li"><span class="ld" id="ln"></span><span>Žádná data v API</span></div>
-    <div class="li"><span class="ld" id="lh"></span><span>Data dostupná / bez filtru</span></div>
+    <div class="li"><span class="ld" id="ln"></span><span>Bez dostupného detailu</span></div>
+    <div class="li"><span class="ld" id="lh"></span><span>Dostupný detail / bez filtru</span></div>
     <div class="li"><span class="ld" style="background:#006778"></span><span>Aktivní výběr</span></div>
     <span class="lh">Táhnutím pohyb · kolečkem zoom</span>
   </div>
   <div class="dbg" id="debug-panel"></div>
+<section class="admin-panel" id="admin-panel" hidden></section>
 </main>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>

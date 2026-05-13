@@ -1,17 +1,10 @@
 # Vakcinační mapa světa – Avenier
 
-Verze v9:
-- přidává seznam destinací podle aktivního filtru nemoci,
-- přidává rozbalovací nabídku dalších nemocí a rizik,
-- opravuje `effectiveDiseaseHits`,
-- sjednocuje mobilní CSS,
-- používá `fetchCountryDetail(info)` i v detailu destinace.
+Verze v14:
+- výraznější hover u nemocí v detailu destinace,
+- zkrácená poznámka v detailu podle zadání,
+- skrytý admin režim pro ruční úpravy a ladění přes `?admin=1`,
+- admin úpravy se ukládají do localStorage a lze je exportovat jako JSON pro config.js.
 
-## Struktura
-- `index.html`
-- `assets/css/map.css`
-- `assets/js/config.js`
-- `assets/js/app.js`
-
-## Poznámka k dalším nemocem
-Rozbalovací nabídka obsahuje i položky, které mohou být v API vedené jako riziko, nikoliv jen jako očkování. Typicky malárie nebo rizika spojená s hmyzem. Finální názvosloví je vhodné ještě medicínsky zkontrolovat.
+Admin:
+Otevřete `/ ?admin=1` nebo `/?admin=1`. Panel se zobrazí pod mapou.

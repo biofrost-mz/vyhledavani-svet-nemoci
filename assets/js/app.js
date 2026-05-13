@@ -21,6 +21,17 @@ let activeDisease='all';
 const diseaseIndex=new Map(); /* diseaseKey → Set(countryId) */
 const detailLoading=new Map();
 
+const ADMIN_MAP_KEY='avenierMapAdminOverridesV1';
+function loadAdminOverrides(){
+  try{
+    const raw=localStorage.getItem(ADMIN_MAP_KEY);
+    return raw?JSON.parse(raw):{};
+  }catch(e){
+    return {};
+  }
+}
+let CUSTOM_DESTINATION_MAP=loadAdminOverrides();
+
 function normId(id){
   const n=Number(id);
   return Number.isFinite(n)?n:id;
@@ -49,6 +60,9 @@ function countryKeys(numId,en,cz){
 
 /* Souřadnice pro API destinace, které některé mapové datasety neobsahují jako samostatný polygon. */
 
+/* API destinace, které nejsou běžný stát v polygonové mapě.
+   mapId = nadřazený nebo nejbližší polygon; coords = přesný bod pro region/ostrov. */
+
 function apiRowKeys(row){
   const keys=[row?.id,row?.slug,row?.countryId,row?.name,row?.title];
   if(row?.www)keys.push(String(row.www).split('?')[0].split('#')[0].split('/').filter(Boolean).pop());
@@ -60,6 +74,18 @@ function forcedIsoForRow(row){
     if(FORCE_ISO_BY_KEY[k])return FORCE_ISO_BY_KEY[k];
   }
   return null;
+}
+
+function apiDestinationMapping(row){
+  for(const k of apiRowKeys(row)){
+    if(CUSTOM_DESTINATION_MAP[k])return CUSTOM_DESTINATION_MAP[k];
+    if(API_DESTINATION_MAP[k])return API_DESTINATION_MAP[k];
+  }
+  return null;
+}
+
+function mappedIdForInfo(id,info){
+  return normId(info?.mapId ?? id);
 }
 
 function buildApiIndex(list){
@@ -116,7 +142,7 @@ function colorForId(id){
   if(activeDisease && activeDisease!=='all'){
     const hits=diseaseIndex.get(activeDisease);
     if(!hits)return MC.dim;
-    return hits.has(nid)?DISEASES[activeDisease].color:MC.dim;
+    return diseaseContainsMapId(activeDisease,nid)?DISEASES[activeDisease].color:MC.dim;
   }
   return MC.has;
 }
@@ -249,6 +275,17 @@ function effectiveDiseaseHits(key){
   return diseaseIndex.get(key)||new Set();
 }
 
+function diseaseContainsMapId(key,id){
+  const hits=effectiveDiseaseHits(key);
+  const nid=normId(id);
+  if(hits.has(nid))return true;
+  for(const hit of hits){
+    const info=FI.get(normId(hit));
+    if(info && mappedIdForInfo(hit,info)===nid)return true;
+  }
+  return false;
+}
+
 function renderFilterResults(){
   const box=document.getElementById('filter-results');
   if(!box)return;
@@ -269,20 +306,18 @@ function renderFilterResults(){
   box.hidden=false;
   box.classList.add('open');
 
-  const link=cfg?.url?`<a class="fr-link" href="${esc(cfg.url)}" target="_blank" rel="noopener">Detail nemoci ↗</a>`:'';
   const chips=hits.map(({id,info})=>`<button class="fr-chip" type="button" data-fr-country="${esc(id)}">${esc(info.name)}</button>`).join('');
 
   box.innerHTML=`<div class="fr-head">
     <div>
       <div class="fr-title">${esc(cfg?.label||'Vybraný filtr')} – destinace v aktuálním filtru</div>
-      <div class="fr-sub">${hits.length} destinací podle aktuálně načtených dat API. Kliknutím na destinaci otevřete detail v mapě.</div>
+      <div class="fr-sub">${hits.length} destinací podle aktuálně načtených doporučení. Kliknutím na destinaci otevřete detail v mapě. Další související nemoci a rizika najdete po otevření detailu destinace.</div>
     </div>
-    <div class="fr-actions">${link}</div>
   </div>
-  ${hits.length?`<div class="fr-grid">${chips}</div>`:`<div class="fr-empty">Pro tento filtr se zatím nepodařilo najít žádnou destinaci. Může jít o riziko, které není v API vedené stejně u všech zemí.</div>`}`;
+  ${hits.length?`<div class="fr-grid">${chips}</div>`:`<div class="fr-empty">Pro tento filtr se zatím nepodařilo najít žádnou destinaci. Může jít o riziko, které zatím není u destinací jednotně vedené.</div>`}`;
 
   box.querySelectorAll('[data-fr-country]').forEach(btn=>{
-    btn.addEventListener('click',()=>selectCountry(Number(btn.dataset.frCountry)));
+    btn.addEventListener('click',()=>selectCountry(normId(btn.dataset.frCountry)));
   });
 }
 
@@ -294,7 +329,7 @@ function repaintMap(){
     .attr('stroke-width',d=>selD&&featureId(d)===featureId(selD)?1.55:.45);
 
   d3.selectAll('circle.dest-marker')
-    .attr('r',d=>(selMarkId!==null&&normId(d.id)===normId(selMarkId)?6:4)/(currentZoomK||1))
+    .attr('r',d=>(selMarkId!==null&&normId(d.id)===normId(selMarkId)?5:3)/(currentZoomK||1))
     .attr('fill',d=>selMarkId!==null&&normId(d.id)===normId(selMarkId)?MC.sel:colorForId(d.id))
     .attr('stroke',d=>selMarkId!==null&&normId(d.id)===normId(selMarkId)?MC.selB:'rgba(255,255,255,0.55)')
     .attr('stroke-width',d=>(selMarkId!==null&&normId(d.id)===normId(selMarkId)?1.7:1)/(currentZoomK||1));
@@ -310,7 +345,7 @@ async function setDiseaseFilter(key){
     const status=document.getElementById('filter-status');
     const loader=document.getElementById('filter-loader');
     if(loader)loader.classList.remove('on');
-    if(status)status.textContent='Zobrazeny všechny destinace s daty z API.';
+    if(status)status.textContent='Zobrazeny všechny destinace s dostupným detailem.';
     repaintMap();
     renderFilterResults();
     if(curInfo)renderMapInfo(curInfo,cache.get(curInfo.slug)||null,false);
@@ -354,11 +389,24 @@ function vaxName(v){
   return esc(v?.name||v?.title||v||'');
 }
 
+function miniPillHtml(v,cls='d'){
+  const name=vaxName(v);
+  const url=v?.url||v?.www||'';
+  if(url)return `<a class="mi-link-pill ${cls}" href="${esc(url)}" target="_blank" rel="noopener">${name}</a>`;
+  return `<span class="mi-pill ${cls}">${name}</span>`;
+}
+
 function miniVaxList(data){
   const {pov,zak,dop}=vaxArrays(data);
-  const all=[...pov,...zak,...dop].slice(0,6);
+  const all=[
+    ...pov.map(v=>({v,cls:'p'})),
+    ...zak.map(v=>({v,cls:'z'})),
+    ...dop.map(v=>({v,cls:'d'}))
+  ];
   if(!all.length)return '';
-  return `<div class="mi-mini">${all.map(v=>`<span class="mi-pill">${vaxName(v)}</span>`).join('')}</div>`;
+  const shown=all.slice(0,6);
+  const more=all.length-shown.length;
+  return `<div class="mi-mini">${shown.map(({v,cls})=>miniPillHtml(v,cls)).join('')}${more>0?`<button class="mi-more" id="mi-more-detail" type="button">… a ${more} dalších</button>`:''}</div>`;
 }
 
 function renderMapInfo(info,data=null,loading=false){
@@ -367,17 +415,9 @@ function renderMapInfo(info,data=null,loading=false){
   const url=info.www||`https://www.ockovacicentrum.cz/cz/${info.slug}`;
   const {pov,zak,dop}=vaxArrays(data);
   const np=pov.length, nz=zak.length, nd=dop.length;
-  const filterActive=activeDisease&&activeDisease!=='all';
-  const inFilter=filterActive?effectiveDiseaseHits(activeDisease).has(normId(info.id??info.numId??[...FI.entries()].find(([,v])=>v===info)?.[0])):false;
-  const filterCfg=filterActive?DISEASES[activeDisease]:null;
-  const filterBadge=filterActive?(
-    filterCfg?.url
-      ? `<a class="mi-badge filter" href="${esc(filterCfg.url)}" target="_blank" rel="noopener">${esc(filterCfg.label)}: ${inFilter?'zahrnuto ve filtru':'mimo filtr'} ↗</a>`
-      : `<span class="mi-badge filter">${esc(filterCfg.label)}: ${inFilter?'zahrnuto ve filtru':'mimo filtr'}</span>`
-  ):'';
   const badges=data
-    ? `<span class="mi-badge p">${np} povinné</span><span class="mi-badge z">${nz} základní</span><span class="mi-badge d">${nd} doporučené</span>${filterBadge}`
-    : (info.has?`${filterBadge}<span class="mi-badge">Načítám doporučení…</span>`:`<span class="mi-badge">Bez detailu v API</span>`);
+    ? `<span class="mi-badge p">${np} povinné</span><span class="mi-badge z">${nz} základní</span><span class="mi-badge d">${nd} doporučené</span>`
+    : (info.has?`<span class="mi-badge">Načítám doporučení…</span>`:`<span class="mi-badge">Bez detailních doporučení</span>`);
   box.innerHTML=`<div class="mi-head">
     <div>
       <div class="mi-label">Vybraná destinace</div>
@@ -387,17 +427,17 @@ function renderMapInfo(info,data=null,loading=false){
   </div>
   <div class="mi-badges">${badges}</div>
   ${data?miniVaxList(data):''}
-  <div class="mi-text">${data?'Rychlý přehled je dostupný přímo v mapě. Kompletní detail najdete níže nebo na webu Očkovacího centra.':'Po výběru destinace se detail zobrazí i v panelu pod mapou. Ve fullscreen režimu vidíte tento rychlý přehled přímo nad mapou.'}</div>
+  <div class="mi-text">${data?'Rychlý přehled nejčastějších doporučení a rizik vidíte přímo zde. Nejde vždy o kompletní výčet — další informace a všechny proklikové položky najdete v detailu níže.':'Po výběru destinace se detail zobrazí i v panelu pod mapou. Ve fullscreen režimu máte tento rychlý přehled přímo nad mapou.'}</div>
   ${loading?'<div class="mi-loading">Načítám detail destinace…</div>':''}
   <div class="mi-actions">
     <button class="mi-btn secondary" id="mi-scroll-detail" type="button">Zobrazit detail níže</button>
     <a class="mi-btn" href="${esc(url)}" target="_blank" rel="noopener">Otevřít detail země</a>
   </div>`;
   box.classList.add('open');
+  const scrollToPanel=()=>document.getElementById('pnl')?.scrollIntoView({behavior:'smooth',block:'start'});
   document.getElementById('mi-close')?.addEventListener('click',closePanel);
-  document.getElementById('mi-scroll-detail')?.addEventListener('click',()=>{
-    document.getElementById('pnl')?.scrollIntoView({behavior:'smooth',block:'start'});
-  });
+  document.getElementById('mi-scroll-detail')?.addEventListener('click',scrollToPanel);
+  document.getElementById('mi-more-detail')?.addEventListener('click',scrollToPanel);
 }
 
 function clearMapInfo(){
@@ -423,14 +463,14 @@ function renderPanel(info){
     </div>
     <div class="div"></div>
     <p class="intro">Doporučení se může lišit podle délky pobytu, konkrétní oblasti, stylu cestování a zdravotního stavu cestovatele. Detail země berte jako rychlý rozcestník pro další ověření.</p>
-    <div id="vb"><p class="ml">${info.has?'Načítám vakcinační doporučení…':'Pro tuto destinaci zatím nejsou dostupná data v API.'}</p></div>
+    <div id="vb"><p class="ml">${info.has?'Načítám vakcinační doporučení…':'Pro tuto destinaci zatím nejsou dostupná detailní doporučení.'}</p></div>
     <div class="cft">
       <div class="actionrow">
         <a class="bmore" href="${esc(url)}" target="_blank" rel="noopener">
           Zjistit více o zemi
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         </a>
-        <a class="bmore secondary" href="https://www.ockovacicentrum.cz" target="_blank" rel="noopener">Najít očkovací centrum</a>
+        <a class="bmore secondary" href="https://www.ockovacicentrum.cz/cz/kde-ockujeme" target="_blank" rel="noopener">Najít očkovací centrum</a>
       </div>
       <span class="ftnote">ockovacicentrum.cz</span>
     </div>
@@ -459,7 +499,7 @@ function renderNoApiData(info){
   const vb=document.getElementById('vb');
   if(vc)vc.innerHTML='';
   if(vb)vb.innerHTML=`<p class="cnote">
-    Pro destinaci <strong>${esc(info.name)}</strong> se v seznamu API zatím nepodařilo dohledat odpovídající záznam. Zkontrolujte aliasy / mapování názvu země.
+    Pro destinaci <strong>${esc(info.name)}</strong> zatím nejsou dostupná detailní doporučení.
   </p>`;
 }
 
@@ -502,8 +542,7 @@ function renderVax(data){
     if(curInfo)renderMapInfo(curInfo,null,false);
     if(vc)vc.innerHTML='';
     vb.innerHTML=`<p class="cnote">
-      Vakcinační data se nepodařilo načíst. Pokud soubor spouštíte lokálně přes <code>file://</code>, může přímý request blokovat CORS.<br>
-      Pro plnou funkci nahrajte soubor na web / testovací hosting, případně použijte vlastní serverový proxy endpoint.
+      Doporučení se momentálně nepodařilo načíst. Zkuste výběr destinace opakovat za chvíli.
     </p>`;
     return;
   }
@@ -538,6 +577,7 @@ function closePanel(){
   resetSel();
   document.getElementById('av-search').value='';
   document.getElementById('av-clr').classList.remove('on');
+  setActiveQuick(null);
 }
 
 /* ── Zoom na feature ── */
@@ -556,29 +596,39 @@ function zoomToCoords(coords,scale=4.2){
   sv.transition().duration(650).call(zb.transform,d3.zoomIdentity.translate(W/2,H/2).scale(scale).translate(-x,-y));
 }
 
+function setActiveQuick(info=null){
+  document.querySelectorAll('.qchip[data-q]').forEach(btn=>{
+    if(!info){btn.classList.remove('active');return;}
+    const q=slugKey(btn.dataset.q||btn.textContent||'');
+    const hay=slugKey([info.name,info.slug,info.search].filter(Boolean).join(' '));
+    btn.classList.toggle('active',!!q && hay.includes(q));
+  });
+}
+
 /* ── Výběr země (ze search i z kliknutí) ── */
 function selectCountry(numId){
   const id=normId(numId);
-  const feat=FM.get(id);
   const info=FI.get(id);
   if(!info){
-    console.warn('Zemi se nepodařilo vybrat:',{id,feat:!!feat,info:!!info});
+    console.warn('Zemi se nepodařilo vybrat:',{id,info:!!info});
     return;
   }
 
+  const mapId=mappedIdForInfo(id,info);
+  const feat=FM.get(mapId);
   resetSel();
 
-  const pathEl=feat?gv.select(`[data-id="${id}"]`).node():null;
   const markerEl=VM.get(id);
+  const pathEl=feat?gv.select(`[data-id="${mapId}"]`).node():null;
 
-  if(pathEl){
+  if(markerEl){
+    selMark=markerEl;selMarkId=id;
+    d3.select(markerEl).attr('r',5/(currentZoomK||1)).attr('fill',MC.sel).attr('stroke',MC.selB).attr('stroke-width',1.5/(currentZoomK||1));
+    zoomToCoords(info.coords);
+  }else if(pathEl){
     selEl=pathEl;selD=feat;
     d3.select(pathEl).attr('fill',MC.sel).attr('stroke',MC.selB).attr('stroke-width',1.55);
     zoomToFeat(feat);
-  }else if(markerEl){
-    selMark=markerEl;selMarkId=id;
-    d3.select(markerEl).attr('r',6/(currentZoomK||1)).attr('fill',MC.sel).attr('stroke',MC.selB).attr('stroke-width',1.7/(currentZoomK||1));
-    zoomToCoords(info.coords);
   }else if(info.coords){
     zoomToCoords(info.coords);
   }
@@ -587,6 +637,7 @@ function selectCountry(numId){
   document.getElementById('av-clr').classList.add('on');
   document.getElementById('av-dd').classList.remove('open');
 
+  setActiveQuick(info);
   renderPanel(info);
 }
 
@@ -623,7 +674,7 @@ function runSearch(q){
   dd.querySelectorAll('.ddi').forEach(el=>{
     el.addEventListener('mousedown',e=>{
       e.preventDefault();
-      selectCountry(Number(el.dataset.nid));
+      selectCountry(normId(el.dataset.nid));
     });
   });
 }
@@ -686,6 +737,185 @@ function canonicalFeatureId(f){
 function featureId(d){
   return normId(d?._numId ?? d?.id);
 }
+
+function isAdminMode(){
+  const qs=new URLSearchParams(window.location.search);
+  return qs.has('admin')||qs.get('mode')==='admin';
+}
+
+function normalizeAdminOverride(raw){
+  const slug=slugKey(raw.slug||'');
+  if(!slug)return null;
+  const mapIdRaw=String(raw.mapId||'').trim();
+  const mapId=mapIdRaw?(Number.isFinite(Number(mapIdRaw))?Number(mapIdRaw):mapIdRaw):undefined;
+  const lon=String(raw.lon||'').trim();
+  const lat=String(raw.lat||'').trim();
+  const obj={
+    id:raw.customId?.trim()||`api:${slug}`,
+    mapId:mapId,
+    name:raw.name?.trim()||slug,
+    note:raw.note?.trim()||''
+  };
+  if(lon!==''&&lat!==''&&Number.isFinite(Number(lon))&&Number.isFinite(Number(lat))){
+    obj.coords=[Number(lon),Number(lat)];
+  }
+  Object.keys(obj).forEach(k=>{
+    if(obj[k]===undefined||obj[k]==='')delete obj[k];
+  });
+  return [slug,obj];
+}
+
+function saveAdminOverride(raw){
+  const pair=normalizeAdminOverride(raw);
+  if(!pair)return false;
+  const [slug,obj]=pair;
+  CUSTOM_DESTINATION_MAP={...CUSTOM_DESTINATION_MAP,[slug]:obj};
+  localStorage.setItem(ADMIN_MAP_KEY,JSON.stringify(CUSTOM_DESTINATION_MAP,null,2));
+  return true;
+}
+
+function clearAdminOverrides(){
+  CUSTOM_DESTINATION_MAP={};
+  localStorage.removeItem(ADMIN_MAP_KEY);
+}
+
+function renderAdminPanel(apiRows,unmatchedApi){
+  const panel=document.getElementById('admin-panel');
+  if(!panel||!isAdminMode())return;
+
+  panel.hidden=false;
+  panel.classList.add('open');
+
+  const rows=[...apiRows].sort((a,b)=>String(a.name||a.id).localeCompare(String(b.name||b.id),'cs'));
+  const unmatchedKeys=new Set(unmatchedApi.map(r=>slugKey(r.id||r.slug||r.name)));
+  const customCount=Object.keys(CUSTOM_DESTINATION_MAP||{}).length;
+
+  panel.innerHTML=`<div class="adm-head">
+    <div>
+      <div class="adm-kicker">Admin / ladění mapování</div>
+      <h2 class="adm-title">Ruční úpravy destinací</h2>
+      <p class="adm-note">Tento panel slouží jen pro testování. Úpravy se ukládají do localStorage tohoto prohlížeče. Po ověření použijte export a hodnoty přeneste do <code>API_DESTINATION_MAP</code> v <code>assets/js/config.js</code>.</p>
+    </div>
+    <span class="adm-badge">${customCount} lokálních úprav</span>
+  </div>
+  <div class="adm-grid">
+    <div class="adm-card">
+      <h3>Destinace</h3>
+      <input class="adm-search" id="adm-search" type="search" placeholder="Hledat destinaci / slug">
+      <div class="adm-list" id="adm-list"></div>
+    </div>
+    <div class="adm-card">
+      <h3>Mapovací pravidlo</h3>
+      <div class="adm-form">
+        <div class="adm-field full"><label>API slug</label><input id="adm-slug" placeholder="např. bali"></div>
+        <div class="adm-field"><label>Název</label><input id="adm-name" placeholder="např. Bali"></div>
+        <div class="adm-field"><label>Custom ID</label><input id="adm-custom-id" placeholder="např. api:bali"></div>
+        <div class="adm-field"><label>Map ID / nadřazený polygon</label><input id="adm-mapid" placeholder="např. 360"></div>
+        <div class="adm-field"><label>Longitude</label><input id="adm-lon" placeholder="např. 115.19"></div>
+        <div class="adm-field"><label>Latitude</label><input id="adm-lat" placeholder="např. -8.41"></div>
+        <div class="adm-field full"><label>Poznámka</label><input id="adm-note" placeholder="např. region pod Indonésií"></div>
+      </div>
+      <div class="adm-actions">
+        <button class="adm-btn primary" id="adm-save" type="button">Uložit lokálně</button>
+        <button class="adm-btn" id="adm-use-current" type="button">Použít aktuální výběr jako mapId</button>
+        <button class="adm-btn" id="adm-export-btn" type="button">Exportovat JSON</button>
+        <button class="adm-btn danger" id="adm-clear" type="button">Smazat lokální úpravy</button>
+      </div>
+      <div class="adm-help" id="adm-help">Postup: vyberte destinaci vlevo, doplňte mapId nebo souřadnice, uložte lokálně a obnovte stránku. Pro trvalé nasazení exportujte JSON a přeneste ho do config.js.</div>
+      <div class="adm-export"><textarea id="adm-export" readonly placeholder="Zde se zobrazí export pro config.js"></textarea></div>
+    </div>
+  </div>`;
+
+  const list=document.getElementById('adm-list');
+  const search=document.getElementById('adm-search');
+
+  function rowKey(row){return slugKey(row.id||row.slug||row.name||'');}
+  function fill(row){
+    const slug=rowKey(row);
+    const current=CUSTOM_DESTINATION_MAP[slug]||API_DESTINATION_MAP[slug]||{};
+    document.getElementById('adm-slug').value=slug;
+    document.getElementById('adm-name').value=row.name||current.name||slug;
+    document.getElementById('adm-custom-id').value=current.id||`api:${slug}`;
+    document.getElementById('adm-mapid').value=current.mapId??'';
+    document.getElementById('adm-lon').value=Array.isArray(current.coords)?current.coords[0]:'';
+    document.getElementById('adm-lat').value=Array.isArray(current.coords)?current.coords[1]:'';
+    document.getElementById('adm-note').value=current.note||'';
+    list.querySelectorAll('.adm-item').forEach(b=>b.classList.toggle('active',b.dataset.slug===slug));
+  }
+
+  function renderList(){
+    const q=slugKey(search.value);
+    const filtered=rows.filter(row=>{
+      const hay=slugKey([row.id,row.name,row.www].filter(Boolean).join(' '));
+      return !q||hay.includes(q);
+    });
+    list.innerHTML=filtered.map(row=>{
+      const slug=rowKey(row);
+      const flag=CUSTOM_DESTINATION_MAP[slug]?' · lokální úprava':(unmatchedKeys.has(slug)?' · nespárované':'');
+      return `<button class="adm-item" type="button" data-slug="${esc(slug)}">
+        <strong>${esc(row.name||slug)}${esc(flag)}</strong>
+        <code>${esc(slug)}</code>
+      </button>`;
+    }).join('')||'<div class="adm-empty">Nic nenalezeno.</div>';
+
+    list.querySelectorAll('.adm-item[data-slug]').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        const row=rows.find(r=>rowKey(r)===btn.dataset.slug);
+        if(row)fill(row);
+      });
+    });
+  }
+
+  search.addEventListener('input',renderList);
+  renderList();
+  if(unmatchedApi[0]){
+    fill(unmatchedApi[0]);
+  }else if(rows[0]){
+    fill(rows[0]);
+  }
+
+  document.getElementById('adm-save').addEventListener('click',()=>{
+    const ok=saveAdminOverride({
+      slug:document.getElementById('adm-slug').value,
+      name:document.getElementById('adm-name').value,
+      customId:document.getElementById('adm-custom-id').value,
+      mapId:document.getElementById('adm-mapid').value,
+      lon:document.getElementById('adm-lon').value,
+      lat:document.getElementById('adm-lat').value,
+      note:document.getElementById('adm-note').value
+    });
+    document.getElementById('adm-help').textContent=ok?'Uloženo lokálně. Obnovte stránku a ověřte chování mapy.':'Nelze uložit: chybí API slug.';
+    renderAdminPanel(apiRows,unmatchedApi);
+  });
+
+  document.getElementById('adm-use-current').addEventListener('click',()=>{
+    if(!curInfo){
+      document.getElementById('adm-help').textContent='Nejprve vyberte zemi nebo destinaci v mapě.';
+      return;
+    }
+    document.getElementById('adm-mapid').value=mappedIdForInfo(curInfo.id,curInfo);
+    if(curInfo.coords){
+      document.getElementById('adm-lon').value=curInfo.coords[0];
+      document.getElementById('adm-lat').value=curInfo.coords[1];
+    }
+  });
+
+  document.getElementById('adm-export-btn').addEventListener('click',()=>{
+    const out=document.getElementById('adm-export');
+    out.value=`/* Lokální admin export – vložte do API_DESTINATION_MAP */\n${JSON.stringify(CUSTOM_DESTINATION_MAP,null,2)}`;
+    out.focus();
+    out.select();
+  });
+
+  document.getElementById('adm-clear').addEventListener('click',()=>{
+    if(confirm('Smazat všechny lokální admin úpravy v tomto prohlížeči?')){
+      clearAdminOverrides();
+      document.getElementById('adm-help').textContent='Lokální úpravy smazány. Obnovte stránku.';
+      renderAdminPanel(apiRows,unmatchedApi);
+    }
+  });
+}
+
 function renderDebugPanel(apiRows,unmatchedApi){
   const panel=document.getElementById('debug-panel');
   if(!panel)return;
@@ -696,7 +926,7 @@ function renderDebugPanel(apiRows,unmatchedApi){
   const items=unmatchedApi.map(x=>`<span class="dbg-chip">${esc(x.name||x.id||'bez názvu')} <code>${esc(x.id||'')}</code></span>`).join('');
   panel.innerHTML=`<strong>Diagnostika párování API</strong><br>
     Spárováno: ${apiRows.length-unmatchedApi.length} / ${apiRows.length}. 
-    Nespárované položky jsou často teritoria nebo marketingové destinace, které nemají vlastní polygon ve world-atlas mapě.
+    Nespárované položky jsou často teritoria nebo cestovatelské destinace, které nemají vlastní polygon v mapě.
     <div class="dbg-list">${items||'<span class="dbg-chip">Vše spárováno</span>'}</div>`;
 }
 
@@ -759,8 +989,33 @@ async function initMap(){
     });
   });
 
-  /* Donutit přiřazení destinací, které API má, ale mapa/API používají odlišný název nebo jde o teritorium. */
+  /* Donutit přiřazení destinací, které API má, ale mapa/API používají odlišný název,
+     nebo jde o ostrov/region/teritorium bez vlastního polygonu. */
   api.rows.forEach(row=>{
+    const mapped=apiDestinationMapping(row);
+    if(mapped){
+      const rawSlug=row.id||row.slug||apiRowKeys(row)[0];
+      const id=normId(mapped.id ?? `api:${rawSlug}`);
+      const mapId=normId(mapped.mapId ?? mapped.id);
+      const base=FI.get(mapId);
+      const name=row.name||mapped.name||base?.name||rawSlug;
+      const slug=row.id||row.slug||rawSlug;
+      FI.set(id,{
+        id,
+        numId:id,
+        mapId,
+        name,
+        slug,
+        has:true,
+        www:row.www||null,
+        coords:mapped.coords||DEST_COORDS[id]||DEST_COORDS[mapId]||null,
+        virtual:!FM.has(id),
+        parentName:base?.name||null,
+        search:unique([name,slug,row.id,row.name,base?.name,...apiRowKeys(row)]).join(' ')
+      });
+      return;
+    }
+
     const forcedId=forcedIsoForRow(row);
     if(!forcedId)return;
 
@@ -801,11 +1056,14 @@ async function initMap(){
   const matchedEntries=[...FI.values()].filter(x=>x.has);
   const matchedApiKeys=new Set(matchedEntries.flatMap(x=>[slugKey(x.slug),slugKey(x.name),slugKey(x.www?.split('/').filter(Boolean).pop()||'')]));
   const unmatchedApi=api.rows.filter(row=>{
+    if(apiDestinationMapping(row))return false;
+    const forced=forcedIsoForRow(row);
+    if(forced && FI.has(forced))return false;
     const keys=apiRowKeys(row);
     return !keys.some(k=>k && matchedApiKeys.has(k));
   });
   const matchedApiRows=api.rows.length-unmatchedApi.length;
-  st.textContent=api.rows.length?`${matchedApiRows} z ${api.rows.length} destinací spárováno z API`:'Lokální data · API nedostupné';
+  st.textContent=api.rows.length?`${matchedApiRows} z ${api.rows.length} destinací připraveno`:'Data se nepodařilo načíst';
   window.AvenierMapDebug={
     apiRows:api.rows,
     matchedApiRows,
@@ -813,6 +1071,7 @@ async function initMap(){
     unmatchedNames:unmatchedApi.map(x=>x.name||x.id)
   };
   renderDebugPanel(api.rows,unmatchedApi);
+  renderAdminPanel(api.rows,unmatchedApi);
   if(unmatchedApi.length){
     console.warn('Nepřiřazené destinace z API:', unmatchedApi.map(x=>({id:x.id,name:x.name,www:x.www})));
   }
@@ -872,7 +1131,7 @@ async function initMap(){
     .style('pointer-events','none');
 
   /* Fallback body pro destinace z API, které nejsou v polygonové vrstvě mapy. */
-  const virtualDest=[...FI.entries()].filter(([id,info])=>info.has&&!FM.has(id)&&info.coords);
+  const virtualDest=[...FI.entries()].filter(([id,info])=>info.has&&info.coords&&(!FM.has(id)||info.virtual||info.mapId));
   const mg=gv.append('g').attr('class','virtual-destinations');
   mg.selectAll('circle.dest-marker')
     .data(virtualDest.map(([id,info])=>({id,info})))
@@ -880,7 +1139,7 @@ async function initMap(){
     .attr('class','dest-marker')
     .attr('cx',d=>prj(d.info.coords)[0])
     .attr('cy',d=>prj(d.info.coords)[1])
-    .attr('r',d=>4/(currentZoomK||1))
+    .attr('r',d=>3/(currentZoomK||1))
     .attr('fill',d=>colorForId(d.id))
     .attr('stroke','rgba(255,255,255,0.55)')
     .attr('stroke-width',1/(currentZoomK||1))
@@ -888,12 +1147,12 @@ async function initMap(){
     .each(function(d){VM.set(d.id,this);})
     .on('mouseover',function(e,d){
       if(this===selMark)return;
-      d3.select(this).attr('r',5/(currentZoomK||1)).attr('fill',hoverColorForId(d.id)).attr('stroke',MC.brdH).attr('stroke-width',1.4/(currentZoomK||1));
+      d3.select(this).attr('r',4/(currentZoomK||1)).attr('fill',hoverColorForId(d.id)).attr('stroke',MC.brdH).attr('stroke-width',1.2/(currentZoomK||1));
       hl.textContent=d.info.name;hl.classList.add('on');
     })
     .on('mouseout',function(e,d){
       if(this===selMark)return;
-      d3.select(this).attr('r',4/(currentZoomK||1)).attr('fill',colorForId(d.id)).attr('stroke','rgba(255,255,255,0.55)').attr('stroke-width',1/(currentZoomK||1));
+      d3.select(this).attr('r',3/(currentZoomK||1)).attr('fill',colorForId(d.id)).attr('stroke','rgba(255,255,255,0.55)').attr('stroke-width',.9/(currentZoomK||1));
       hl.classList.remove('on');
     })
     .on('click',function(e,d){

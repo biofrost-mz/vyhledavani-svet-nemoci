@@ -1,8 +1,8 @@
 /* Konfigurace a datové mapování pro Vakcinační mapu světa. */
 
-const CN={4:"Afghanistan",8:"Albania",12:"Algeria",24:"Angola",32:"Argentina",51:"Armenia",36:"Australia",40:"Austria",31:"Azerbaijan",50:"Bangladesh",112:"Belarus",56:"Belgium",84:"Belize",204:"Benin",64:"Bhutan",68:"Bolivia",70:"Bosnia and Herzegovina",72:"Botswana",76:"Brazil",100:"Bulgaria",854:"Burkina Faso",108:"Burundi",116:"Cambodia",120:"Cameroon",124:"Canada",140:"Central African Republic",148:"Chad",152:"Chile",156:"China",170:"Colombia",178:"Republic of the Congo",180:"DR Congo",188:"Costa Rica",191:"Croatia",192:"Cuba",196:"Cyprus",203:"Czech Republic",208:"Denmark",262:"Djibouti",214:"Dominican Republic",218:"Ecuador",818:"Egypt",222:"El Salvador",226:"Equatorial Guinea",232:"Eritrea",233:"Estonia",231:"Ethiopia",246:"Finland",250:"France",266:"Gabon",270:"Gambia",268:"Georgia",276:"Germany",288:"Ghana",300:"Greece",320:"Guatemala",324:"Guinea",624:"Guinea-Bissau",328:"Guyana",332:"Haiti",340:"Honduras",348:"Hungary",356:"India",360:"Indonesia",364:"Iran",368:"Iraq",372:"Ireland",376:"Israel",380:"Italy",388:"Jamaica",392:"Japan",400:"Jordan",398:"Kazakhstan",404:"Kenya",408:"North Korea",410:"South Korea",414:"Kuwait",417:"Kyrgyzstan",418:"Laos",428:"Latvia",422:"Lebanon",426:"Lesotho",430:"Liberia",434:"Libya",440:"Lithuania",807:"North Macedonia",450:"Madagascar",454:"Malawi",458:"Malaysia",466:"Mali",478:"Mauritania",484:"Mexico",498:"Moldova",496:"Mongolia",499:"Montenegro",504:"Morocco",508:"Mozambique",104:"Myanmar",516:"Namibia",524:"Nepal",528:"Netherlands",554:"New Zealand",558:"Nicaragua",562:"Niger",566:"Nigeria",578:"Norway",512:"Oman",586:"Pakistan",591:"Panama",598:"Papua New Guinea",600:"Paraguay",604:"Peru",608:"Philippines",616:"Poland",620:"Portugal",642:"Romania",643:"Russia",682:"Saudi Arabia",686:"Senegal",688:"Serbia",694:"Sierra Leone",703:"Slovakia",705:"Slovenia",706:"Somalia",710:"South Africa",728:"South Sudan",724:"Spain",144:"Sri Lanka",729:"Sudan",748:"Eswatini",752:"Sweden",756:"Switzerland",760:"Syria",762:"Tajikistan",834:"Tanzania",764:"Thailand",626:"Timor-Leste",768:"Togo",780:"Trinidad and Tobago",788:"Tunisia",792:"Turkey",795:"Turkmenistan",800:"Uganda",804:"Ukraine",784:"United Arab Emirates",826:"United Kingdom",840:"United States",858:"Uruguay",860:"Uzbekistan",862:"Venezuela",704:"Vietnam",887:"Yemen",894:"Zambia",716:"Zimbabwe",20:"Andorra",28:"Antigua and Barbuda",44:"Bahamas",48:"Bahrain",52:"Barbados",96:"Brunei",132:"Cape Verde",174:"Comoros",242:"Fiji",296:"Kiribati",308:"Grenada",336:"Vatican City",352:"Iceland",384:"Cote d'Ivoire",438:"Liechtenstein",442:"Luxembourg",462:"Maldives",470:"Malta",480:"Mauritius",492:"Monaco",520:"Nauru",548:"Vanuatu",583:"Micronesia",584:"Marshall Islands",585:"Palau",634:"Qatar",646:"Rwanda",674:"San Marino",678:"Sao Tome and Principe",690:"Seychelles",702:"Singapore",90:"Solomon Islands",740:"Suriname",776:"Tonga",798:"Tuvalu",882:"Samoa",304:"Greenland",540:"New Caledonia",630:"Puerto Rico",158:"Taiwan",383:"Kosovo",732:"Western Sahara"};
+const CN={4:"Afghanistan",8:"Albania",12:"Algeria",24:"Angola",32:"Argentina",51:"Armenia",36:"Australia",40:"Austria",31:"Azerbaijan",50:"Bangladesh",112:"Belarus",56:"Belgium",84:"Belize",204:"Benin",64:"Bhutan",68:"Bolivia",70:"Bosnia and Herzegovina",72:"Botswana",76:"Brazil",100:"Bulgaria",854:"Burkina Faso",108:"Burundi",116:"Cambodia",120:"Cameroon",124:"Canada",140:"Central African Republic",148:"Chad",152:"Chile",156:"China",170:"Colombia",178:"Republic of the Congo",180:"DR Congo",188:"Costa Rica",191:"Croatia",192:"Cuba",196:"Cyprus",203:"Czech Republic",208:"Denmark",262:"Djibouti",214:"Dominican Republic",218:"Ecuador",818:"Egypt",222:"El Salvador",226:"Equatorial Guinea",232:"Eritrea",233:"Estonia",231:"Ethiopia",246:"Finland",250:"France",266:"Gabon",270:"Gambia",268:"Georgia",276:"Germany",288:"Ghana",300:"Greece",320:"Guatemala",324:"Guinea",624:"Guinea-Bissau",328:"Guyana",332:"Haiti",340:"Honduras",348:"Hungary",356:"India",360:"Indonesia",364:"Iran",368:"Iraq",372:"Ireland",376:"Israel",380:"Italy",388:"Jamaica",392:"Japan",400:"Jordan",398:"Kazakhstan",404:"Kenya",408:"North Korea",410:"South Korea",414:"Kuwait",417:"Kyrgyzstan",418:"Laos",428:"Latvia",422:"Lebanon",426:"Lesotho",430:"Liberia",434:"Libya",440:"Lithuania",807:"North Macedonia",450:"Madagascar",454:"Malawi",458:"Malaysia",466:"Mali",478:"Mauritania",484:"Mexico",498:"Moldova",496:"Mongolia",499:"Montenegro",504:"Morocco",508:"Mozambique",104:"Myanmar",516:"Namibia",524:"Nepal",528:"Netherlands",554:"New Zealand",558:"Nicaragua",562:"Niger",566:"Nigeria",578:"Norway",512:"Oman",586:"Pakistan",591:"Panama",598:"Papua New Guinea",600:"Paraguay",604:"Peru",608:"Philippines",616:"Poland",620:"Portugal",642:"Romania",643:"Russia",682:"Saudi Arabia",686:"Senegal",688:"Serbia",694:"Sierra Leone",703:"Slovakia",705:"Slovenia",706:"Somalia",710:"South Africa",728:"South Sudan",724:"Spain",144:"Sri Lanka",729:"Sudan",748:"Eswatini",752:"Sweden",756:"Switzerland",760:"Syria",762:"Tajikistan",834:"Tanzania",764:"Thailand",626:"Timor-Leste",768:"Togo",780:"Trinidad and Tobago",788:"Tunisia",792:"Turkey",795:"Turkmenistan",800:"Uganda",804:"Ukraine",784:"United Arab Emirates",826:"United Kingdom",840:"United States",858:"Uruguay",860:"Uzbekistan",862:"Venezuela",704:"Vietnam",887:"Yemen",894:"Zambia",716:"Zimbabwe",20:"Andorra",28:"Antigua and Barbuda",44:"Bahamas",48:"Bahrain",52:"Barbados",96:"Brunei",132:"Cape Verde",174:"Comoros",242:"Fiji",296:"Kiribati",308:"Grenada",336:"Vatican City",352:"Iceland",384:"Cote d'Ivoire",438:"Liechtenstein",442:"Luxembourg",462:"Maldives",470:"Malta",480:"Mauritius",492:"Monaco",520:"Nauru",548:"Vanuatu",583:"Micronesia",584:"Marshall Islands",585:"Palau",634:"Qatar",646:"Rwanda",674:"San Marino",678:"Sao Tome and Principe",690:"Seychelles",702:"Singapore",90:"Solomon Islands",740:"Suriname",776:"Tonga",798:"Tuvalu",882:"Samoa",304:"Greenland",540:"New Caledonia",630:"Puerto Rico",158:"Taiwan",383:"Kosovo",732:"Western Sahara",136:"Cayman Islands",184:"Cook Islands",212:"Dominica",254:"French Guiana",258:"French Polynesia",312:"Guadeloupe",344:"Hong Kong",474:"Martinique",535:"Bonaire, Sint Eustatius and Saba",638:"Reunion",652:"Saint Barthelemy",659:"Saint Kitts and Nevis",662:"Saint Lucia",663:"Saint Martin",670:"Saint Vincent and the Grenadines",796:"Turks and Caicos Islands",850:"United States Virgin Islands"};
 
-const CZ={4:"Afghánistán",8:"Albánie",12:"Alžírsko",24:"Angola",32:"Argentina",51:"Arménie",36:"Austrálie",40:"Rakousko",31:"Ázerbájdžán",50:"Bangladéš",112:"Bělorusko",56:"Belgie",84:"Belize",204:"Benin",64:"Bhútán",68:"Bolívie",70:"Bosna a Hercegovina",72:"Botswana",76:"Brazílie",100:"Bulharsko",854:"Burkina Faso",108:"Burundi",116:"Kambodža",120:"Kamerun",124:"Kanada",140:"Středoafrická republika",148:"Čad",152:"Chile",156:"Čína",170:"Kolumbie",178:"Kongo",180:"DR Kongo",188:"Kostarika",191:"Chorvatsko",192:"Kuba",196:"Kypr",203:"Česká republika",208:"Dánsko",262:"Džibutsko",214:"Dominikánská republika",218:"Ekvádor",818:"Egypt",222:"Salvador",226:"Rovníková Guinea",232:"Eritrea",233:"Estonsko",231:"Etiopie",246:"Finsko",250:"Francie",266:"Gabon",270:"Gambie",268:"Gruzie",276:"Německo",288:"Ghana",300:"Řecko",320:"Guatemala",324:"Guinea",624:"Guinea-Bissau",328:"Guyana",332:"Haiti",340:"Honduras",348:"Maďarsko",356:"Indie",360:"Indonésie",364:"Írán",368:"Irák",372:"Irsko",376:"Izrael",380:"Itálie",388:"Jamajka",392:"Japonsko",400:"Jordánsko",398:"Kazachstán",404:"Keňa",408:"Severní Korea",410:"Jižní Korea",414:"Kuvajt",417:"Kyrgyzstán",418:"Laos",428:"Lotyšsko",422:"Libanon",426:"Lesotho",430:"Libérie",434:"Libye",440:"Litva",807:"Severní Makedonie",450:"Madagaskar",454:"Malawi",458:"Malajsie",466:"Mali",478:"Mauritánie",484:"Mexiko",498:"Moldavsko",496:"Mongolsko",499:"Černá Hora",504:"Maroko",508:"Mozambik",104:"Myanmar",516:"Namibie",524:"Nepál",528:"Nizozemsko",554:"Nový Zéland",558:"Nikaragua",562:"Niger",566:"Nigérie",578:"Norsko",512:"Omán",586:"Pákistán",591:"Panama",598:"Papua Nová Guinea",600:"Paraguay",604:"Peru",608:"Filipíny",616:"Polsko",620:"Portugalsko",642:"Rumunsko",643:"Rusko",682:"Saúdská Arábie",686:"Senegal",688:"Srbsko",694:"Sierra Leone",703:"Slovensko",705:"Slovinsko",706:"Somálsko",710:"Jihoafrická republika",728:"Jižní Súdán",724:"Španělsko",144:"Srí Lanka",729:"Súdán",748:"Eswatini",752:"Švédsko",756:"Švýcarsko",760:"Sýrie",762:"Tádžikistán",834:"Tanzanie",764:"Thajsko",626:"Východní Timor",768:"Togo",780:"Trinidad a Tobago",788:"Tunisko",792:"Turecko",795:"Turkmenistán",800:"Uganda",804:"Ukrajina",784:"Spojené arabské emiráty",826:"Velká Británie",840:"USA",858:"Uruguay",860:"Uzbekistán",862:"Venezuela",704:"Vietnam",887:"Jemen",894:"Zambie",716:"Zimbabwe",20:"Andorra",28:"Antigua a Barbuda",44:"Bahamy",48:"Bahrajn",52:"Barbados",96:"Brunej",132:"Kapverdy",174:"Komory",242:"Fidži",296:"Kiribati",308:"Grenada",336:"Vatikán",352:"Island",384:"Pobřeží slonoviny",438:"Lichtenštejnsko",442:"Lucembursko",462:"Maledivy",470:"Malta",480:"Mauricius",492:"Monako",520:"Nauru",548:"Vanuatu",583:"Mikronésie",584:"Marshallovy ostrovy",585:"Palau",634:"Katar",646:"Rwanda",674:"San Marino",678:"Svatý Tomáš a Princův ostrov",690:"Seychely",702:"Singapur",90:"Šalomounovy ostrovy",740:"Surinam",776:"Tonga",798:"Tuvalu",882:"Samoa",304:"Greenland",540:"New Caledonia",630:"Puerto Rico",158:"Taiwan",383:"Kosovo",732:"Západní Sahara"};
+const CZ={4:"Afghánistán",8:"Albánie",12:"Alžírsko",24:"Angola",32:"Argentina",51:"Arménie",36:"Austrálie",40:"Rakousko",31:"Ázerbájdžán",50:"Bangladéš",112:"Bělorusko",56:"Belgie",84:"Belize",204:"Benin",64:"Bhútán",68:"Bolívie",70:"Bosna a Hercegovina",72:"Botswana",76:"Brazílie",100:"Bulharsko",854:"Burkina Faso",108:"Burundi",116:"Kambodža",120:"Kamerun",124:"Kanada",140:"Středoafrická republika",148:"Čad",152:"Chile",156:"Čína",170:"Kolumbie",178:"Kongo",180:"DR Kongo",188:"Kostarika",191:"Chorvatsko",192:"Kuba",196:"Kypr",203:"Česká republika",208:"Dánsko",262:"Džibutsko",214:"Dominikánská republika",218:"Ekvádor",818:"Egypt",222:"Salvador",226:"Rovníková Guinea",232:"Eritrea",233:"Estonsko",231:"Etiopie",246:"Finsko",250:"Francie",266:"Gabon",270:"Gambie",268:"Gruzie",276:"Německo",288:"Ghana",300:"Řecko",320:"Guatemala",324:"Guinea",624:"Guinea-Bissau",328:"Guyana",332:"Haiti",340:"Honduras",348:"Maďarsko",356:"Indie",360:"Indonésie",364:"Írán",368:"Irák",372:"Irsko",376:"Izrael",380:"Itálie",388:"Jamajka",392:"Japonsko",400:"Jordánsko",398:"Kazachstán",404:"Keňa",408:"Severní Korea",410:"Jižní Korea",414:"Kuvajt",417:"Kyrgyzstán",418:"Laos",428:"Lotyšsko",422:"Libanon",426:"Lesotho",430:"Libérie",434:"Libye",440:"Litva",807:"Severní Makedonie",450:"Madagaskar",454:"Malawi",458:"Malajsie",466:"Mali",478:"Mauritánie",484:"Mexiko",498:"Moldavsko",496:"Mongolsko",499:"Černá Hora",504:"Maroko",508:"Mozambik",104:"Myanmar",516:"Namibie",524:"Nepál",528:"Nizozemsko",554:"Nový Zéland",558:"Nikaragua",562:"Niger",566:"Nigérie",578:"Norsko",512:"Omán",586:"Pákistán",591:"Panama",598:"Papua Nová Guinea",600:"Paraguay",604:"Peru",608:"Filipíny",616:"Polsko",620:"Portugalsko",642:"Rumunsko",643:"Rusko",682:"Saúdská Arábie",686:"Senegal",688:"Srbsko",694:"Sierra Leone",703:"Slovensko",705:"Slovinsko",706:"Somálsko",710:"Jihoafrická republika",728:"Jižní Súdán",724:"Španělsko",144:"Srí Lanka",729:"Súdán",748:"Eswatini",752:"Švédsko",756:"Švýcarsko",760:"Sýrie",762:"Tádžikistán",834:"Tanzanie",764:"Thajsko",626:"Východní Timor",768:"Togo",780:"Trinidad a Tobago",788:"Tunisko",792:"Turecko",795:"Turkmenistán",800:"Uganda",804:"Ukrajina",784:"Spojené arabské emiráty",826:"Velká Británie",840:"USA",858:"Uruguay",860:"Uzbekistán",862:"Venezuela",704:"Vietnam",887:"Jemen",894:"Zambie",716:"Zimbabwe",20:"Andorra",28:"Antigua a Barbuda",44:"Bahamy",48:"Bahrajn",52:"Barbados",96:"Brunej",132:"Kapverdy",174:"Komory",242:"Fidži",296:"Kiribati",308:"Grenada",336:"Vatikán",352:"Island",384:"Pobřeží slonoviny",438:"Lichtenštejnsko",442:"Lucembursko",462:"Maledivy",470:"Malta",480:"Mauricius",492:"Monako",520:"Nauru",548:"Vanuatu",583:"Mikronésie",584:"Marshallovy ostrovy",585:"Palau",634:"Katar",646:"Rwanda",674:"San Marino",678:"Svatý Tomáš a Princův ostrov",690:"Seychely",702:"Singapur",90:"Šalomounovy ostrovy",740:"Surinam",776:"Tonga",798:"Tuvalu",882:"Samoa",304:"Greenland",540:"New Caledonia",630:"Puerto Rico",158:"Taiwan",383:"Kosovo",732:"Západní Sahara",136:"Kajmanské ostrovy",184:"Cookovy ostrovy",212:"Dominika",254:"Francouzská Guyana",258:"Francouzská Polynésie",312:"Guadeloupe",344:"Hongkong",474:"Martinik",535:"Bonaire, Svatý Eustach a Saba",638:"Réunion",652:"Saint-Barthélemy",659:"Svatý Kryštof a Nevis",662:"Svatá Lucie",663:"Saint-Martin",670:"Svatý Vincenc a Grenadiny",796:"Turks a Caicos",850:"Americké Panenské ostrovy"};
 
 const OV={"Bosnia and Herzegovina":"bosnia-and-herzegovina","Burkina Faso":"burkina-faso","Central African Republic":"central-african-republic","Costa Rica":"costa-rica","Czech Republic":"czech-republic","Dominican Republic":"dominican-republic","DR Congo":"democratic-republic-of-the-congo","El Salvador":"el-salvador","Equatorial Guinea":"equatorial-guinea","Eswatini":"eswatini","Guinea-Bissau":"guinea-bissau","New Zealand":"new-zealand","North Korea":"north-korea","North Macedonia":"north-macedonia","Papua New Guinea":"papua-new-guinea","Republic of the Congo":"republic-of-the-congo","Saudi Arabia":"saudi-arabia","Sierra Leone":"sierra-leone","South Africa":"south-africa","South Korea":"south-korea","South Sudan":"south-sudan","Sri Lanka":"sri-lanka","Timor-Leste":"timor-leste","Trinidad and Tobago":"trinidad-and-tobago","United Arab Emirates":"united-arab-emirates","United Kingdom":"united-kingdom","United States":"united-states","Antigua and Barbuda":"antigua-and-barbuda","Cape Verde":"cape-verde","Cote d'Ivoire":"cote-divoire","Sao Tome and Principe":"sao-tome-and-principe","Solomon Islands":"solomon-islands","Vatican City":"vatican-city"};
 
@@ -107,6 +107,11 @@ const API_ALIAS={
 };
 
 const FORCE_ISO_BY_KEY={
+  'tuvalu':798,
+  'dominika':212,
+  'svata-lucie':662,
+  'svaty-krystof-a-nevis':659,
+  'svaty-vincenc-a-grenadiny':670,
   'barma':104,
   'barma-myanmar':104,
   'birma':104,
@@ -185,103 +190,136 @@ const DEST_COORDS={
   732:[-13.20,24.30]   /* Western Sahara */
 };
 
+const API_DESTINATION_MAP={
+  'americke-panenske-ostrovy':{id:'api:americke-panenske-ostrovy',mapId:850,coords:[-64.90,18.34]},
+  'bali':{id:'api:bali',mapId:360,coords:[115.19,-8.41]},
+  'bermudy':{id:'api:bermudy',mapId:60,coords:[-64.75,32.31]},
+  'bonaire':{id:'api:bonaire',mapId:535,coords:[-68.27,12.18]},
+  'borneo':{id:'api:borneo',mapId:360,coords:[114.00,0.80]},
+  'britske-panenske-ostrovy':{id:'api:britske-panenske-ostrovy',mapId:92,coords:[-64.64,18.42]},
+  'cookovy-ostrovy':{id:'api:cookovy-ostrovy',mapId:184,coords:[-159.78,-21.24]},
+  'dominika':{id:212,mapId:212,coords:[-61.37,15.41]},
+  'francouzska-guyana':{id:'api:francouzska-guyana',mapId:254,coords:[-53.13,3.93]},
+  'francouzska-polynesie':{id:'api:francouzska-polynesie',mapId:258,coords:[-149.41,-17.68]},
+  'guadeloupe':{id:'api:guadeloupe',mapId:312,coords:[-61.55,16.25]},
+  'hongkong':{id:'api:hongkong',mapId:344,coords:[114.17,22.32]},
+  'kajmanske-ostrovy':{id:'api:kajmanske-ostrovy',mapId:136,coords:[-81.25,19.31]},
+  'kanarske-ostrovy':{id:'api:kanarske-ostrovy',mapId:724,coords:[-15.50,28.30]},
+  'korsika':{id:'api:korsika',mapId:250,coords:[9.01,42.04]},
+  'mallorca':{id:'api:mallorca',mapId:724,coords:[2.90,39.60]},
+  'martinik':{id:'api:martinik',mapId:474,coords:[-61.02,14.64]},
+  'reunion':{id:'api:reunion',mapId:638,coords:[55.54,-21.12]},
+  'saint-barthelemy':{id:'api:saint-barthelemy',mapId:652,coords:[-62.83,17.90]},
+  'saint-martin':{id:'api:saint-martin',mapId:663,coords:[-63.06,18.08]},
+  'sardinie':{id:'api:sardinie',mapId:380,coords:[9.00,40.00]},
+  'sicilie':{id:'api:sicilie',mapId:380,coords:[14.00,37.60]},
+  'sint-eustatius':{id:'api:sint-eustatius',mapId:535,coords:[-62.98,17.49]},
+  'svata-lucie':{id:662,mapId:662,coords:[-60.98,13.91]},
+  'svaty-krystof-a-nevis':{id:659,mapId:659,coords:[-62.78,17.35]},
+  'svaty-vincenc-a-grenadiny':{id:670,mapId:670,coords:[-61.20,13.25]},
+  'tanzanie':{id:834,mapId:834},
+  'tasmanie':{id:'api:tasmanie',mapId:36,coords:[146.60,-42.00]},
+  'turks-a-caicos':{id:'api:turks-a-caicos',mapId:796,coords:[-71.80,21.75]},
+  'tuvalu':{id:798,mapId:798,coords:[179.20,-8.52]}
+};
+
 const DISEASES={
   'yellow-fever':{
     label:'Žlutá zimnice',
     url:'https://www.ockovacicentrum.cz/cz/zluta-zimnice',
-    color:'#f2b705',
-    hover:'#dca300',
+    color:'#78BE20',
+    hover:'#5fa018',
     aliases:['zluta-zimnice','zluta-zimnice-ockovani','yellow-fever','yellow-fever-vaccine']
   },
   'typhoid':{
     label:'Břišní tyfus',
     url:'https://www.ockovacicentrum.cz/cz/brisni-tyfus',
-    color:'#e67e22',
-    hover:'#cc6d18',
+    color:'#78BE20',
+    hover:'#5fa018',
     aliases:['brisni-tyfus','brsni-tyfus','tyfus','typhoid','typhoid-fever','typhoid-vaccine']
   },
   'dengue':{
     label:'Horečka Dengue',
     url:'https://www.ockovacicentrum.cz/cz/horecka-dengue',
-    color:'#c23b7a',
-    hover:'#a93069',
+    color:'#78BE20',
+    hover:'#5fa018',
     aliases:['horecka-dengue','dengue','dengue-fever','dengue-vaccine']
   },
   'rabies':{
     label:'Vzteklina',
     url:'https://www.ockovacicentrum.cz/cz/vzteklina',
-    color:'#7b61ff',
-    hover:'#6650d8',
+    color:'#78BE20',
+    hover:'#5fa018',
     aliases:['vzteklina','rabies','rabies-vaccine']
   },
   'japanese-encephalitis':{
     label:'Japonská encefalitida',
     url:'https://www.ockovacicentrum.cz/cz/japonska-encefalitida',
-    color:'#00a6a6',
-    hover:'#008f8f',
+    color:'#78BE20',
+    hover:'#5fa018',
     aliases:['japonska-encefalitida','japanese-encephalitis','japanese-encephalitis-vaccine']
   },
   'cholera':{
     label:'Cholera',
     url:'https://www.ockovacicentrum.cz/cz/cholera',
-    color:'#2f80ed',
-    hover:'#2468c4',
+    color:'#78BE20',
+    hover:'#5fa018',
     aliases:['cholera','cholera-vaccine','ockovani-proti-cholere']
   },
   'hepatitis-a':{
     label:'Žloutenka A',
     url:'https://www.ockovacicentrum.cz/cz/zloutenka-typu-a',
-    color:'#f2994a',
-    hover:'#d9822f',
+    color:'#78BE20',
+    hover:'#5fa018',
     aliases:['zloutenka-typu-a','zloutenka-a','zoutenka-a','hepatitida-a','hepatitis-a','virova-hepatitida-a']
   },
   'hepatitis-b':{
     label:'Žloutenka B',
     url:'https://www.ockovacicentrum.cz/cz/zloutenka-typu-b',
-    color:'#b7791f',
-    hover:'#975a16',
+    color:'#78BE20',
+    hover:'#5fa018',
     aliases:['zloutenka-typu-b','zloutenka-b','hepatitida-b','hepatitis-b','virova-hepatitida-b']
   },
   'polio':{
     label:'Dětská obrna',
     url:'https://www.ockovacicentrum.cz/cz/detska-obrna',
-    color:'#2d9cdb',
-    hover:'#1f7fb5',
+    color:'#78BE20',
+    hover:'#5fa018',
     aliases:['detska-obrna','poliomyelitida','poliomyelitis','polio']
   },
   'meningococcus':{
     label:'Meningokok',
     url:'https://www.ockovacicentrum.cz/cz/meningokokove-nakazy',
-    color:'#9b51e0',
-    hover:'#7e3fba',
+    color:'#78BE20',
+    hover:'#5fa018',
     aliases:['meningokok','meningokokove-nakazy','meningokokove-infekce','meningococcus','meningococcal']
   },
   'malaria':{
     label:'Malárie',
     url:'https://www.ockovacicentrum.cz/cz/malarie',
-    color:'#6fcf97',
-    hover:'#4aaa73',
+    color:'#78BE20',
+    hover:'#5fa018',
     aliases:['malarie','malaria','antimalarika','antimalarial','komari','komar']
   },
   'tick-borne-encephalitis':{
     label:'Klíšťová encefalitida',
     url:'https://www.ockovacicentrum.cz/cz/klistova-encefalitida',
-    color:'#219653',
-    hover:'#187a42',
+    color:'#78BE20',
+    hover:'#5fa018',
     aliases:['klistova-encefalitida','kliste','tick-borne-encephalitis','tbe']
   },
   'measles':{
     label:'Spalničky',
     url:'https://www.ockovacicentrum.cz/cz/spalnicky',
-    color:'#eb5757',
-    hover:'#c94545',
+    color:'#78BE20',
+    hover:'#5fa018',
     aliases:['spalnicky','measles','m-m-r','mmr']
   },
   'flu':{
     label:'Chřipka',
     url:'https://www.ockovacicentrum.cz/cz/ockovani-proti-chripce-sezona-2025-2026',
-    color:'#56ccf2',
-    hover:'#2fa8cf',
+    color:'#78BE20',
+    hover:'#5fa018',
     aliases:['chripka','influenza','flu']
   }
 };
