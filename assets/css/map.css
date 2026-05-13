@@ -786,3 +786,43 @@ a:hover{color:var(--oc-green)}
   opacity:1!important;
   transform:none!important;
 }
+
+
+/* ==== v18 destination card green underlay only ==== */
+.card::after{
+  top:-70px!important;
+  right:-70px!important;
+  left:auto!important;
+  bottom:auto!important;
+  width:260px!important;
+  height:260px!important;
+  border:none!important;
+  border-radius:50%!important;
+  background:
+    radial-gradient(circle at center,
+      rgba(120,190,32,.22) 0%,
+      rgba(120,190,32,.14) 34%,
+      rgba(0,103,120,.08) 58%,
+      rgba(120,190,32,0) 74%)!important;
+  opacity:1!important;
+  transform:none!important;
+  pointer-events:none!important;
+}
+
+
+/* ==== v19 destination card subtle article-style underlay ==== */
+.card{
+  background:
+    radial-gradient(circle at right top,
+      rgba(120,190,32,.18) 0%,
+      rgba(120,190,32,.11) 26%,
+      rgba(120,190,32,.045) 44%,
+      rgba(255,255,255,0) 66%),
+    linear-gradient(135deg, rgba(255,255,255,1), rgba(250,254,252,1))!important;
+  border-color:rgba(120,190,32,.26)!important;
+  box-shadow:0 18px 40px rgba(0,103,120,.08)!important;
+}
+.card::after{
+  display:none!important;
+  content:none!important;
+}
