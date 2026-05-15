@@ -599,7 +599,32 @@ function diseaseSourceLabel(key){
   return '';
 }
 
+function closeFilterInfo(){
+  const info=document.querySelector('.finfo[open]');
+  if(info)info.removeAttribute('open');
+}
+
+function setupFilterInfoDismiss(){
+  const info=document.querySelector('.finfo');
+  if(!info || info.dataset.bound==='1')return;
+  info.dataset.bound='1';
+
+  document.addEventListener('click',e=>{
+    if(!info.open)return;
+    if(e.target.closest('.finfo')===info)return;
+    info.removeAttribute('open');
+  });
+
+  document.addEventListener('keydown',e=>{
+    if(e.key==='Escape' && info.open){
+      info.removeAttribute('open');
+      info.querySelector('summary')?.focus();
+    }
+  });
+}
+
 async function setDiseaseFilter(key){
+  closeFilterInfo();
   requestedDisease=key||'all';
   if(requestedDisease!=='all' && !DISEASES[requestedDisease]){
     console.warn('Neznámý filtr nemoci:',requestedDisease);
@@ -658,6 +683,8 @@ function setupFilters(){
       }
     });
   });
+
+  setupFilterInfoDismiss();
 }
 
 function vaxArrays(data){
