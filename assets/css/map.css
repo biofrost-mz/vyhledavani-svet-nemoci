@@ -279,9 +279,30 @@ a:hover{color:var(--oc-green)}
 .dlink{display:none !important}
 .faux-note{display:block;width:100%;margin:8px 0 0;padding:12px 14px 12px 17px;border-radius:16px;background:var(--oc-bg-soft);border:1px solid var(--oc-border);color:var(--oc-muted);font-size:12px;line-height:1.6;position:relative}
 .faux-note::before{content:"";position:absolute;left:0;top:12px;bottom:12px;width:4px;border-radius:0 8px 8px 0;background:linear-gradient(180deg,var(--oc-green),var(--oc-blue))}
-.more-diseases{border-top:1px solid rgba(0,103,120,.10);margin-top:6px;padding-top:10px}
-.more-diseases summary{font-size:14px;font-weight:700;color:var(--oc-blue);padding:7px 11px;border:1px solid rgba(0,103,120,.14);border-radius:999px;background:#fff}
-.more-diseases summary::after{width:18px;height:18px;font-size:12px}
+.more-diseases{border-top:1px solid rgba(0,103,120,.10);margin-top:6px;padding-top:9px}
+.more-diseases summary{
+  font-size:12px;
+  font-weight:600;
+  color:#566762;
+  padding:0;
+  border:none;
+  border-radius:0;
+  background:transparent;
+  display:inline-flex;
+  align-items:center;
+  justify-content:flex-start;
+  line-height:1.25;
+}
+.more-diseases summary::after{
+  width:17px;
+  height:17px;
+  font-size:11px;
+  line-height:1;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:0;
+}
 .more-grid{gap:8px}
 .quick{margin-top:12px}
 .qchip{background:#fff;border:1px solid rgba(0,103,120,.10);padding:8px 14px;box-shadow:0 5px 16px rgba(0,0,0,.03)}
@@ -470,6 +491,7 @@ a:hover{color:var(--oc-green)}
   .flbl{width:100%;font-size:13px}
   .fbtn{font-size:11px;padding:8px 12px}
   .more-diseases{margin-top:4px}
+  .more-diseases summary{font-size:11.5px}
   .more-grid{gap:7px}
   .faux-note{font-size:11px;padding:11px 12px 11px 16px}
   .fstatus{width:100%;margin-left:0}

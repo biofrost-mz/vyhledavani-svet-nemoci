@@ -604,6 +604,12 @@ function closeFilterInfo(){
   if(info)info.removeAttribute('open');
 }
 
+function resetMapViewport(){
+  if(!sv || !zb)return;
+  const base=d3.zoomIdentity;
+  sv.transition().duration(420).call(zb.transform,base);
+}
+
 function setupFilterInfoDismiss(){
   const info=document.querySelector('.finfo');
   if(!info || info.dataset.bound==='1')return;
@@ -625,6 +631,7 @@ function setupFilterInfoDismiss(){
 
 async function setDiseaseFilter(key){
   closeFilterInfo();
+  resetMapViewport();
   requestedDisease=key||'all';
   if(requestedDisease!=='all' && !DISEASES[requestedDisease]){
     console.warn('Neznámý filtr nemoci:',requestedDisease);
