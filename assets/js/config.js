@@ -229,6 +229,8 @@ const DISEASES={
     url:'https://www.ockovacicentrum.cz/cz/zluta-zimnice',
     color:'#78BE20',
     hover:'#5fa018',
+    facetColors:{risk:'#78BE20',entry:'#F2B705',both:'#CA005D'},
+    facetHover:{risk:'#5fa018',entry:'#d29d00',both:'#a9004e'},
     aliases:['zluta-zimnice','zluta-zimnice-ockovani','yellow-fever','yellow-fever-vaccine']
   },
   'typhoid':{
@@ -250,7 +252,8 @@ const DISEASES={
     url:'https://www.ockovacicentrum.cz/cz/vzteklina',
     color:'#78BE20',
     hover:'#5fa018',
-    aliases:['vzteklina','rabies','rabies-vaccine']
+    aliases:['vzteklina','rabies','rabies-vaccine'],
+    excludeAliases:['vzteklina-se-nevyskytuje']
   },
   'japanese-encephalitis':{
     label:'Japonská encefalitida',
@@ -344,16 +347,35 @@ const DISEASE_INDEX_ROW_FIELDS=[
 ];
 
 /* Frontendový fallback pro filtry, které nelze spolehlivě odvodit z názvů položek
-   v Avenier API. Malárie vychází z CDC Yellow Book 2026 (veřejný dataset
-   YellowFeverInformationJson), zkontrolováno 2026-08-10. Zvýraznění znamená,
-   že CDC uvádí přenos alespoň v části země; neznamená automatické doporučení
-   chemoprofylaxe pro celou zemi.
+   v Avenier API. Žlutá zimnice a malárie vycházejí z CDC Yellow Book 2026
+   (veřejný dataset YellowFeverInformationJson), zkontrolováno 2026-08-10.
+
+   U žluté zimnice jsou zahrnuté destinace, kde CDC doporučuje očkování alespoň
+   pro část země. Samotná vstupní podmínka při příletu z endemické oblasti nestačí.
+
+   U malárie zvýraznění znamená, že CDC uvádí přenos alespoň v části země;
+   neznamená automatické doporučení chemoprofylaxe pro celou zemi.
 
    Ze snapshotu nejsou zařazeny:
    - Mayotte (není samostatnou destinací v Avenier API),
    - Surinam a Východní Timor (WHO je v roce 2025 certifikovala jako malaria-free),
    - Sýrie (CDC záznam nemá vyplněnou oblast ani doporučení). */
 const STATIC_DISEASE_INDEX={
+  'yellow-fever':{
+    seed:false,
+    sourceLabel:'CDC Yellow Book 2026',
+    sourceUrl:'https://www.cdc.gov/yellow-book/hcp/preparing-international-travelers/yellow-fever-vaccine-and-malaria-prevention-information-by-country.html',
+    reviewedLabel:'ověřeno 10. 8. 2026',
+    note:'Vstupní podmínky se načítají z Avenier API. Kandidáty na místní riziko aplikace odvozuje z kategorií Avenier a ověřuje je podle CDC, protože samotné API obě situace nerozlišuje konzistentně. Riziko znamená doporučení očkování alespoň pro část území, ne hlášení aktuální epidemie.',
+    destinationSlugs:[
+      'angola','argentina','benin','bolivie','brazilie','burkina-faso','burundi','cad',
+      'demokraticka-republika-kongo-zair','ekvador','francouzska-guyana','gabon','gambie',
+      'ghana','guinea','guinea-bissau','guyana','jizni-sudan','kamerun','kena','kolumbie',
+      'kongo','liberie','mali','mauritanie','niger','nigerie','panama','paraguay','peru',
+      'pobrezi-slonoviny','rovnikova-guinea','senegal','sierra-leone','stredoafricka-republika',
+      'sudan','surinam','togo','trinidad-a-tobago','uganda','venezuela'
+    ]
+  },
   'malaria':{
     sourceLabel:'CDC Yellow Book 2026',
     sourceUrl:'https://www.cdc.gov/yellow-book/hcp/preparing-international-travelers/yellow-fever-vaccine-and-malaria-prevention-information-by-country.html',

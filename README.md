@@ -29,3 +29,18 @@ Verze v22.1 (filtry):
 - u malárie se zobrazuje zdroj, datum kontroly a vysvětlení regionálního/sezónního rizika,
 - odstraněno osm duplicitních virtuálních destinací ve vyhledávání a výsledcích filtrů,
 - statické assety mají verzovaný cache-buster `v=22.1`.
+
+Verze v22.2 (přesnost filtrů):
+- žlutá zimnice používá samostatný index destinací s doporučením očkování podle CDC Yellow Book 2026,
+- vstupní podmínka při příletu z endemické oblasti se již nevydává za místní riziko žluté zimnice,
+- filtr vztekliny ignoruje položku „Vzteklina se nevyskytuje“,
+- všechny filtry vysvětlují zdroj a význam zvýraznění; téměř univerzální doporučení na omezenou vypovídací hodnotu upozorní,
+- statické assety mají verzovaný cache-buster `v=22.2`.
+
+Verze v22.3 (API-first žlutá zimnice):
+- vstupní podmínky žluté zimnice se načítají z živých detailů Avenier API,
+- kandidáti na místní riziko se odvozují z kategorií Avenier a ověřují podpůrným seznamem CDC,
+- mapa rozlišuje riziko, pouze vstupní podmínku a souběh obou stavů třemi barvami,
+- výsledky filtru zobrazují stejnou barevnou legendu a zdroje,
+- vzteklina zůstává vyhodnocovaná výhradně z Avenier API,
+- statické assety mají verzovaný cache-buster `v=22.3`.
