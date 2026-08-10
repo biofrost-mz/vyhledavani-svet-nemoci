@@ -191,26 +191,26 @@ const DEST_COORDS={
 };
 
 const API_DESTINATION_MAP={
-  'americke-panenske-ostrovy':{id:'api:americke-panenske-ostrovy',mapId:850,coords:[-64.90,18.34]},
+  'americke-panenske-ostrovy':{id:850,mapId:850,coords:[-64.90,18.34]},
   'bali':{id:'api:bali',mapId:360,coords:[115.19,-8.41]},
   'bermudy':{id:'api:bermudy',mapId:60,coords:[-64.75,32.31]},
   'bonaire':{id:'api:bonaire',mapId:535,coords:[-68.27,12.18]},
   'borneo':{id:'api:borneo',mapId:360,coords:[114.00,0.80]},
   'britske-panenske-ostrovy':{id:'api:britske-panenske-ostrovy',mapId:92,coords:[-64.64,18.42]},
-  'cookovy-ostrovy':{id:'api:cookovy-ostrovy',mapId:184,coords:[-159.78,-21.24]},
+  'cookovy-ostrovy':{id:184,mapId:184,coords:[-159.78,-21.24]},
   'dominika':{id:212,mapId:212,coords:[-61.37,15.41]},
   'francouzska-guyana':{id:'api:francouzska-guyana',mapId:254,coords:[-53.13,3.93]},
-  'francouzska-polynesie':{id:'api:francouzska-polynesie',mapId:258,coords:[-149.41,-17.68]},
+  'francouzska-polynesie':{id:258,mapId:258,coords:[-149.41,-17.68]},
   'guadeloupe':{id:'api:guadeloupe',mapId:312,coords:[-61.55,16.25]},
-  'hongkong':{id:'api:hongkong',mapId:344,coords:[114.17,22.32]},
-  'kajmanske-ostrovy':{id:'api:kajmanske-ostrovy',mapId:136,coords:[-81.25,19.31]},
+  'hongkong':{id:344,mapId:344,coords:[114.17,22.32]},
+  'kajmanske-ostrovy':{id:136,mapId:136,coords:[-81.25,19.31]},
   'kanarske-ostrovy':{id:'api:kanarske-ostrovy',mapId:724,coords:[-15.50,28.30]},
   'korsika':{id:'api:korsika',mapId:250,coords:[9.01,42.04]},
   'mallorca':{id:'api:mallorca',mapId:724,coords:[2.90,39.60]},
   'martinik':{id:'api:martinik',mapId:474,coords:[-61.02,14.64]},
   'reunion':{id:'api:reunion',mapId:638,coords:[55.54,-21.12]},
-  'saint-barthelemy':{id:'api:saint-barthelemy',mapId:652,coords:[-62.83,17.90]},
-  'saint-martin':{id:'api:saint-martin',mapId:663,coords:[-63.06,18.08]},
+  'saint-barthelemy':{id:652,mapId:652,coords:[-62.83,17.90]},
+  'saint-martin':{id:663,mapId:663,coords:[-63.06,18.08]},
   'sardinie':{id:'api:sardinie',mapId:380,coords:[9.00,40.00]},
   'sicilie':{id:'api:sicilie',mapId:380,coords:[14.00,37.60]},
   'sint-eustatius':{id:'api:sint-eustatius',mapId:535,coords:[-62.98,17.49]},
@@ -219,7 +219,7 @@ const API_DESTINATION_MAP={
   'svaty-vincenc-a-grenadiny':{id:670,mapId:670,coords:[-61.20,13.25]},
   'tanzanie':{id:834,mapId:834},
   'tasmanie':{id:'api:tasmanie',mapId:36,coords:[146.60,-42.00]},
-  'turks-a-caicos':{id:'api:turks-a-caicos',mapId:796,coords:[-71.80,21.75]},
+  'turks-a-caicos':{id:796,mapId:796,coords:[-71.80,21.75]},
   'tuvalu':{id:798,mapId:798,coords:[179.20,-8.52]}
 };
 
@@ -229,6 +229,8 @@ const DISEASES={
     url:'https://www.ockovacicentrum.cz/cz/zluta-zimnice',
     color:'#78BE20',
     hover:'#5fa018',
+    facetColors:{risk:'#78BE20',entry:'#F2B705',both:'#CA005D'},
+    facetHover:{risk:'#5fa018',entry:'#d29d00',both:'#a9004e'},
     aliases:['zluta-zimnice','zluta-zimnice-ockovani','yellow-fever','yellow-fever-vaccine']
   },
   'typhoid':{
@@ -250,7 +252,8 @@ const DISEASES={
     url:'https://www.ockovacicentrum.cz/cz/vzteklina',
     color:'#78BE20',
     hover:'#5fa018',
-    aliases:['vzteklina','rabies','rabies-vaccine']
+    aliases:['vzteklina','rabies','rabies-vaccine'],
+    excludeAliases:['vzteklina-se-nevyskytuje']
   },
   'japanese-encephalitis':{
     label:'Japonská encefalitida',
@@ -342,3 +345,57 @@ const DISEASE_INDEX_ROW_FIELDS=[
   'vaccinationTags',
   'tags'
 ];
+
+/* Frontendový fallback pro filtry, které nelze spolehlivě odvodit z názvů položek
+   v Avenier API. Žlutá zimnice a malárie vycházejí z CDC Yellow Book 2026
+   (veřejný dataset YellowFeverInformationJson), zkontrolováno 2026-08-10.
+
+   U žluté zimnice jsou zahrnuté destinace, kde CDC doporučuje očkování alespoň
+   pro část země. Samotná vstupní podmínka při příletu z endemické oblasti nestačí.
+
+   U malárie zvýraznění znamená, že CDC uvádí přenos alespoň v části země;
+   neznamená automatické doporučení chemoprofylaxe pro celou zemi.
+
+   Ze snapshotu nejsou zařazeny:
+   - Mayotte (není samostatnou destinací v Avenier API),
+   - Surinam a Východní Timor (WHO je v roce 2025 certifikovala jako malaria-free),
+   - Sýrie (CDC záznam nemá vyplněnou oblast ani doporučení). */
+const STATIC_DISEASE_INDEX={
+  'yellow-fever':{
+    seed:false,
+    sourceLabel:'CDC Yellow Book 2026',
+    sourceUrl:'https://www.cdc.gov/yellow-book/hcp/preparing-international-travelers/yellow-fever-vaccine-and-malaria-prevention-information-by-country.html',
+    reviewedLabel:'ověřeno 10. 8. 2026',
+    note:'Vstupní podmínky se načítají z Avenier API. Kandidáty na místní riziko aplikace odvozuje z kategorií Avenier a ověřuje je podle CDC, protože samotné API obě situace nerozlišuje konzistentně. Riziko znamená doporučení očkování alespoň pro část území, ne hlášení aktuální epidemie.',
+    destinationSlugs:[
+      'angola','argentina','benin','bolivie','brazilie','burkina-faso','burundi','cad',
+      'demokraticka-republika-kongo-zair','ekvador','francouzska-guyana','gabon','gambie',
+      'ghana','guinea','guinea-bissau','guyana','jizni-sudan','kamerun','kena','kolumbie',
+      'kongo','liberie','mali','mauritanie','niger','nigerie','panama','paraguay','peru',
+      'pobrezi-slonoviny','rovnikova-guinea','senegal','sierra-leone','stredoafricka-republika',
+      'sudan','surinam','togo','trinidad-a-tobago','uganda','venezuela'
+    ]
+  },
+  'malaria':{
+    sourceLabel:'CDC Yellow Book 2026',
+    sourceUrl:'https://www.cdc.gov/yellow-book/hcp/preparing-international-travelers/yellow-fever-vaccine-and-malaria-prevention-information-by-country.html',
+    reviewedLabel:'ověřeno 10. 8. 2026',
+    note:'Zvýraznění znamená, že zdroj uvádí přenos malárie alespoň v části země. Riziko bývá regionální, sezónní a závisí na trase i stylu cesty. Neznamená automatické doporučení antimalarik pro celou zemi; konkrétní prevenci musí určit lékař.',
+    destinationSlugs:[
+      'afghanistan','angola','banglades','benin','bhutan','bolivie','botswana','brazilie',
+      'brunej','burkina-faso','burundi','cad','demokraticka-republika-kongo-zair',
+      'dominikanska-republika','dzibutsko','ekvador','eritrea','etiopie','filipiny',
+      'francouzska-guyana','gabon','gambie','ghana','guatemala','guinea','guinea-bissau',
+      'guyana','haiti','honduras','indie','indonesie','iran','jemen','jihoafricka-republika',
+      'jizni-sudan','kambodza','kamerun','kena','kolumbie','komory','kongo',
+      'korejska-lidove-demokraticka-republika-kldr','korejska-republika-jizni-korea',
+      'kostarika','laos','liberie','madagaskar','malajsie','malawi','mali','mauritanie',
+      'mexiko','mosambik','myanmar-barma','namibie','nepal','niger','nigerie','nikaragua',
+      'oman','pakistan','panama','papua-nova-guinea','peru','pobrezi-slonoviny','recko',
+      'rovnikova-guinea','rwanda','salamounovy-ostrovy','saudska-arabie','senegal',
+      'sierra-leone','somalsko','stredoafricka-republika','sudan','svaty-tomas-a-princuv-ostrov',
+      'svazijsko','tanzanie','thajsko','togo','uganda','vanuatu','venezuela','vietnam',
+      'zambie','zimbabwe'
+    ]
+  }
+};
