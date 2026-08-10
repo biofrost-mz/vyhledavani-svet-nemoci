@@ -1,0 +1,60 @@
+name: Aktualizace indexu nemocí
+
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: disease-index-update
+  cancel-in-progress: false
+
+jobs:
+  update-index:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Načíst repozitář
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Nastavit Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Vygenerovat a ověřit index
+        run: node scripts/generate-disease-index.mjs
+
+      - name: Připravit pull request, pokud se data změnila
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH_NAME: automation/update-disease-index
+        shell: bash
+        run: |
+          if git diff --quiet -- assets/data/disease-index.json; then
+            echo "Index se nezměnil."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH_NAME"
+          git add assets/data/disease-index.json
+          git commit -m "Update disease index"
+          REMOTE_SHA="$(git ls-remote --heads origin "$BRANCH_NAME" | cut -f1)"
+          if [ -n "$REMOTE_SHA" ]; then
+            git push --force-with-lease="$BRANCH_NAME:$REMOTE_SHA" origin "$BRANCH_NAME"
+          else
+            git push origin "$BRANCH_NAME"
+          fi
+
+          if gh pr view "$BRANCH_NAME" >/dev/null 2>&1; then
+            gh pr edit "$BRANCH_NAME" --title "Update disease index" --body "Automatická aktualizace indexu z veřejného Avenier API. Generátor před zápisem ověřil strukturu, úplnost detailů a očekávané rozsahy počtů."
+          else
+            gh pr create --base main --head "$BRANCH_NAME" --title "Update disease index" --body "Automatická aktualizace indexu z veřejného Avenier API. Generátor před zápisem ověřil strukturu, úplnost detailů a očekávané rozsahy počtů."
+          fi

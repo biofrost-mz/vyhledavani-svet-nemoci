@@ -220,8 +220,21 @@ const API_DESTINATION_MAP={
   'tanzanie':{id:834,mapId:834},
   'tasmanie':{id:'api:tasmanie',mapId:36,coords:[146.60,-42.00]},
   'turks-a-caicos':{id:796,mapId:796,coords:[-71.80,21.75]},
-  'tuvalu':{id:798,mapId:798,coords:[179.20,-8.52]}
+  'tuvalu':{id:798,mapId:798,coords:[179.20,-8.52]},
+  'zanzibar':{id:'api:zanzibar',mapId:834,coords:[39.20,-6.16]}
 };
+
+/* API obsahuje vedle států také samostatně vedená teritoria a cestovatelské
+   regiony. Seznam slouží pouze pro transparentní souhrn pokrytí; filtry dál
+   pracují s jednotlivými destinacemi přesně tak, jak je vrací API. */
+const REGIONAL_DESTINATION_SLUGS=[
+  'americke-panenske-ostrovy','anguilla','aruba','bali','bermudy','bonaire','borneo',
+  'britske-panenske-ostrovy','cookovy-ostrovy','curacao','francouzska-guyana',
+  'francouzska-polynesie','gronsko','guadeloupe','hongkong','kajmanske-ostrovy',
+  'kanarske-ostrovy','korsika','macao','mallorca','martinik','montserrat','nova-kaledonie',
+  'portoriko','reunion','saint-barthelemy','saint-martin','sardinie','sicilie',
+  'sint-eustatius','sint-maarten','tasmanie','turks-a-caicos','zanzibar','zapadni-sahara'
+];
 
 const DISEASES={
   'yellow-fever':{
@@ -330,7 +343,7 @@ const DISEASES={
 /* Volitelný backendový index nemocí.
    Pokud API vrací mapu nemoc -> seznam ID destinací, vyplňte URL.
    Pokud je null, frontend použije metadata v seznamu destinací a fallback přes detail destinace. */
-const DISEASE_INDEX_API_URL=null;
+const DISEASE_INDEX_API_URL='assets/data/disease-index.json';
 
 /* Pole v API seznamu destinací, ze kterých se frontend pokusí číst značky nemocí/rizik.
    Každá položka může být string, array nebo objekt s name/key/id/slug/title. */

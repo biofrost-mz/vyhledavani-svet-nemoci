@@ -24,11 +24,16 @@ let requestedDisease='all';
 let filterRequestToken=0;
 const diseaseIndex=new Map(); /* diseaseKey → Set(countryId) */
 const diseaseIndexSource=new Map(); /* diseaseKey → 'detail'|'api-row'|'api-index'|'cache' */
+const diseaseIndexMeta=new Map(); /* diseaseKey → {total,loaded,failures,retryAt} */
 const diseaseFacets=new Map(); /* diseaseKey → doplňkové množiny, např. risk/entry */
 let yellowFeverLoadPromise=null;
 const detailLoading=new Map();
 const detailCache=new Map(); /* slug -> {status:'ok'|'error', ts:number, data?:object} */
 const DETAIL_ERROR_RETRY_MS=90*1000;
+const DETAIL_SUCCESS_TTL_MS=6*60*60*1000;
+const DETAIL_STORAGE_KEY='avenierCountryDetailCacheV1';
+const API_FETCH_TIMEOUT_MS=12*1000;
+let detailCachePersistTimer=null;
 
 const ADMIN_MAP_KEY='avenierMapAdminOverridesV1';
 function loadAdminOverrides(){
@@ -231,13 +236,8 @@ function resetSel(){
   selEl=null;selD=null;selMark=null;selMarkId=null;
 }
 
-/* ── Fetch s proxy fallbackem ── */
+/* ── Přímé načítání Avenier API ── */
 const APIS='https://www.ockovacicentrum.cz/api/country';
-const PX=[
-  url=>url,
-  url=>'https://corsproxy.io/?'+encodeURIComponent(url),
-  url=>'https://api.allorigins.win/raw?url='+encodeURIComponent(url)
-];
 let curSlug=null;
 let curInfo=null;
 const defaultDiseaseRowFields=['diseases','diseaseKeys','disease_tags','diseaseTags','risks','riskTags','vaccines','vaccinationTags','tags'];
@@ -246,12 +246,18 @@ const diseaseIndexRowFields=Array.isArray(typeof DISEASE_INDEX_ROW_FIELDS==='und
   ? DISEASE_INDEX_ROW_FIELDS
   : defaultDiseaseRowFields;
 let diseaseIndexApiLoadPromise=null;
+let diseaseIndexGeneratedAt=null;
 
 function getCachedDetailState(slug){
   const key=String(slug||'');
   const entry=detailCache.get(key);
   if(!entry)return 'miss';
-  if(entry.status==='ok')return 'ok';
+  if(entry.status==='ok'){
+    if(Date.now()-entry.ts<DETAIL_SUCCESS_TTL_MS)return 'ok';
+    detailCache.delete(key);
+    scheduleDetailCachePersist();
+    return 'miss';
+  }
   if(Date.now()-entry.ts<DETAIL_ERROR_RETRY_MS)return 'error';
   detailCache.delete(key);
   return 'miss';
@@ -259,30 +265,73 @@ function getCachedDetailState(slug){
 
 function getCachedDetail(slug){
   const key=String(slug||'');
+  if(getCachedDetailState(key)!=='ok')return null;
   const entry=detailCache.get(key);
-  if(!entry)return null;
-  if(entry.status==='ok')return entry.data||null;
-  return null;
+  return entry?.data||null;
 }
 
 function setCachedDetailSuccess(slug,data){
   detailCache.set(String(slug||''),{status:'ok',data,ts:Date.now()});
+  scheduleDetailCachePersist();
 }
 
 function setCachedDetailError(slug){
   detailCache.set(String(slug||''),{status:'error',ts:Date.now()});
 }
 
-async function apiFetch(url){
-  for(const makeUrl of PX){
-    try{
-      const r=await fetch(makeUrl(url));
-      if(!r.ok)continue;
-      const d=await r.json();
-      if(d)return d;
-    }catch(e){}
+function hydrateDetailCache(){
+  try{
+    const raw=localStorage.getItem(DETAIL_STORAGE_KEY);
+    const saved=raw?JSON.parse(raw):null;
+    if(saved?.version!==1||!Array.isArray(saved.entries))return;
+    const now=Date.now();
+    saved.entries.forEach(entry=>{
+      if(!entry?.slug||!entry?.data||!Number.isFinite(entry.ts))return;
+      if(now-entry.ts>=DETAIL_SUCCESS_TTL_MS)return;
+      detailCache.set(String(entry.slug),{status:'ok',data:entry.data,ts:entry.ts});
+    });
+  }catch(e){
+    /* Cache je pouze optimalizace; poškozený nebo zakázaný localStorage ignorujeme. */
   }
-  return null;
+}
+
+function persistDetailCache(){
+  try{
+    const entries=[];
+    const now=Date.now();
+    detailCache.forEach((entry,slug)=>{
+      if(entry?.status!=='ok'||!entry.data||now-entry.ts>=DETAIL_SUCCESS_TTL_MS)return;
+      entries.push({slug,ts:entry.ts,data:entry.data});
+    });
+    localStorage.setItem(DETAIL_STORAGE_KEY,JSON.stringify({version:1,savedAt:now,entries}));
+  }catch(e){
+    /* Při nedostupném nebo zaplněném úložišti aplikace pokračuje bez persistence. */
+  }
+}
+
+function scheduleDetailCachePersist(){
+  if(detailCachePersistTimer)clearTimeout(detailCachePersistTimer);
+  detailCachePersistTimer=setTimeout(()=>{
+    detailCachePersistTimer=null;
+    persistDetailCache();
+  },350);
+}
+
+hydrateDetailCache();
+
+async function apiFetch(url){
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),API_FETCH_TIMEOUT_MS);
+  try{
+    const r=await fetch(url,{signal:controller.signal,headers:{Accept:'application/json'}});
+    if(!r.ok)return null;
+    const d=await r.json();
+    return d||null;
+  }catch(e){
+    return null;
+  }finally{
+    clearTimeout(timeout);
+  }
 }
 
 /* ── HTML escape ── */
@@ -440,8 +489,27 @@ function parseDiseaseIndexIds(raw){
     if(Array.isArray(raw.ids))return raw.ids;
     if(Array.isArray(raw.countryIds))return raw.countryIds;
     if(Array.isArray(raw.destinations))return raw.destinations;
+    if(Array.isArray(raw.destinationSlugs))return raw.destinationSlugs;
+    if(Array.isArray(raw.slugs))return raw.slugs;
   }
   return [];
+}
+
+function resolveDiseaseIndexDestinationIds(rawIds){
+  const resolved=[];
+  (rawIds||[]).forEach(raw=>{
+    const direct=normId(raw);
+    if(FI.has(direct)){
+      resolved.push(direct);
+      return;
+    }
+    const key=slugKey(raw);
+    if(!key)return;
+    FI.forEach((info,id)=>{
+      if(slugKey(info?.slug)===key||slugKey(info?.name)===key)resolved.push(normId(id));
+    });
+  });
+  return unique(resolved);
 }
 
 function mergeDiseaseIndexPayload(payload,source='api-index'){
@@ -452,7 +520,7 @@ function mergeDiseaseIndexPayload(payload,source='api-index'){
     payload.forEach(item=>{
       const key=toDiseaseKey(item?.key||item?.disease||item?.name);
       if(!key)return;
-      const ids=parseDiseaseIndexIds(item);
+      const ids=resolveDiseaseIndexDestinationIds(parseDiseaseIndexIds(item));
       if(ids.length){
         upsertDiseaseIndex(key,ids,source);
         merged++;
@@ -469,7 +537,7 @@ function mergeDiseaseIndexPayload(payload,source='api-index'){
   Object.entries(root).forEach(([rawKey,rawVal])=>{
     const key=toDiseaseKey(rawKey);
     if(!key)return;
-    const ids=parseDiseaseIndexIds(rawVal);
+    const ids=resolveDiseaseIndexDestinationIds(parseDiseaseIndexIds(rawVal));
     if(ids.length){
       upsertDiseaseIndex(key,ids,source);
       merged++;
@@ -534,7 +602,10 @@ async function loadDiseaseIndexFromApiIfConfigured(){
   if(!diseaseIndexApiUrl)return;
   if(diseaseIndexApiLoadPromise)return diseaseIndexApiLoadPromise;
   diseaseIndexApiLoadPromise=apiFetch(diseaseIndexApiUrl).then(payload=>{
-    if(payload)mergeDiseaseIndexPayload(payload,'api-index');
+    if(payload){
+      mergeDiseaseIndexPayload(payload,'api-index');
+      diseaseIndexGeneratedAt=payload?.generatedAt||null;
+    }
     return payload;
   }).catch(e=>{
     console.warn('Backendový index nemocí se nepodařilo načíst:',e);
@@ -543,8 +614,16 @@ async function loadDiseaseIndexFromApiIfConfigured(){
   return diseaseIndexApiLoadPromise;
 }
 
+function indexedYellowFeverFacets(payload){
+  const raw=payload?.yellowFever;
+  if(!raw)return null;
+  const entry=new Set(resolveDiseaseIndexDestinationIds(raw.entryDestinationSlugs||raw.entry||[]));
+  const apiRiskCandidates=new Set(resolveDiseaseIndexDestinationIds(raw.riskCandidateDestinationSlugs||raw.riskCandidates||[]));
+  if(!entry.size&&!apiRiskCandidates.size)return null;
+  return{entry,apiRiskCandidates};
+}
+
 async function buildDiseaseIndexFromDetails(key,{token=null}={}){
-  if(diseaseIndex.has(key))return diseaseIndex.get(key);
   const status=document.getElementById('filter-status');
   const loader=document.getElementById('filter-loader');
   const isCurrent=()=>token===null || token===filterRequestToken;
@@ -553,6 +632,7 @@ async function buildDiseaseIndexFromDetails(key,{token=null}={}){
 
   const countries=[...FI.entries()].filter(([,info])=>info.has&&info.slug);
   const hits=new Set();
+  const failures=new Set();
   let done=0;
   const limit=8;
   let cursor=0;
@@ -561,7 +641,11 @@ async function buildDiseaseIndexFromDetails(key,{token=null}={}){
     while(cursor<countries.length){
       const [id,info]=countries[cursor++];
       const data=await fetchCountryDetail(info);
-      if(dataHasDisease(data,key))hits.add(normId(id));
+      if(data){
+        if(dataHasDisease(data,key))hits.add(normId(id));
+      }else{
+        failures.add(normId(id));
+      }
       done++;
       if(status && isCurrent() && (done%12===0 || done===countries.length)){
         status.textContent=`Načítám filtr: ${DISEASES[key].label} · ${done}/${countries.length}`;
@@ -571,7 +655,13 @@ async function buildDiseaseIndexFromDetails(key,{token=null}={}){
 
   await Promise.all(Array.from({length:Math.min(limit,countries.length)},worker));
   diseaseIndex.set(key,hits);
-  diseaseIndexSource.set(key,'detail');
+  diseaseIndexSource.set(key,failures.size?'detail-partial':'detail');
+  diseaseIndexMeta.set(key,{
+    total:countries.length,
+    loaded:countries.length-failures.size,
+    failures,
+    retryAt:failures.size?Date.now()+DETAIL_ERROR_RETRY_MS:null
+  });
   if(loader && isCurrent())loader.classList.remove('on');
   if(status && isCurrent())status.textContent=`${DISEASES[key].label}: zvýrazněno ${hits.size} destinací.`;
   return hits;
@@ -588,7 +678,9 @@ function configuredStaticIds(key){
 }
 
 async function buildYellowFeverClassification({token=null}={}){
-  if(diseaseFacets.has('yellow-fever'))return diseaseFacets.get('yellow-fever');
+  const previousMeta=diseaseIndexMeta.get('yellow-fever');
+  const retryDue=previousMeta?.failures?.size && Date.now()>=(previousMeta.retryAt||0);
+  if(diseaseFacets.has('yellow-fever')&&!retryDue)return diseaseFacets.get('yellow-fever');
   if(yellowFeverLoadPromise)return yellowFeverLoadPromise;
 
   const status=document.getElementById('filter-status');
@@ -597,6 +689,19 @@ async function buildYellowFeverClassification({token=null}={}){
   const cdcRisk=configuredStaticIds('yellow-fever');
 
   yellowFeverLoadPromise=(async()=>{
+    const indexed=indexedYellowFeverFacets(await loadDiseaseIndexFromApiIfConfigured());
+    if(indexed){
+      const risk=new Set([...indexed.apiRiskCandidates].filter(id=>cdcRisk.has(id)));
+      const rejected=new Set([...indexed.apiRiskCandidates].filter(id=>!cdcRisk.has(id)));
+      const facets={risk,entry:indexed.entry,apiRiskCandidates:indexed.apiRiskCandidates,rejected,failures:new Set()};
+      diseaseIndex.set('yellow-fever',risk);
+      diseaseIndexSource.set('yellow-fever','hybrid-index');
+      diseaseIndexMeta.set('yellow-fever',{total:countries.length,loaded:countries.length,failures:new Set(),retryAt:null});
+      diseaseFacets.set('yellow-fever',facets);
+      if(rejected.size)console.info('Kandidáti žluté zimnice z indexu Avenier API bez potvrzení CDC:',[...rejected]);
+      return facets;
+    }
+
     const entry=new Set();
     const apiRiskCandidates=new Set();
     const failures=new Set();
@@ -628,13 +733,19 @@ async function buildYellowFeverClassification({token=null}={}){
     const rejected=new Set([...apiRiskCandidates].filter(id=>!cdcRisk.has(id)));
     const facets={risk,entry,apiRiskCandidates,rejected,failures};
     diseaseIndex.set('yellow-fever',risk);
-    diseaseIndexSource.set('yellow-fever','hybrid');
+    diseaseIndexSource.set('yellow-fever',failures.size?'hybrid-partial':'hybrid');
+    diseaseIndexMeta.set('yellow-fever',{
+      total:countries.length,
+      loaded:countries.length-failures.size,
+      failures,
+      retryAt:failures.size?Date.now()+DETAIL_ERROR_RETRY_MS:null
+    });
     diseaseFacets.set('yellow-fever',facets);
     if(rejected.size){
       console.info('Kandidáti žluté zimnice z Avenier API bez potvrzení CDC:',[...rejected]);
     }
     return facets;
-  })();
+  })().finally(()=>{yellowFeverLoadPromise=null;});
 
   return yellowFeverLoadPromise;
 }
@@ -645,6 +756,10 @@ async function ensureDiseaseIndex(key,{token=null}={}){
     return diseaseIndex.get(key)||new Set();
   }
   if(diseaseIndex.has(key)){
+    const meta=diseaseIndexMeta.get(key);
+    if(meta?.failures?.size && Date.now()>=(meta.retryAt||0)){
+      return buildDiseaseIndexFromDetails(key,{token});
+    }
     if(!diseaseIndexSource.has(key))diseaseIndexSource.set(key,'cache');
     return diseaseIndex.get(key);
   }
@@ -667,19 +782,11 @@ function effectiveDiseaseHits(key){
   return base;
 }
 
-function setContainsMapId(set,id){
-  const nid=normId(id);
-  if(set?.has(nid))return true;
-  for(const hit of (set||[])){
-    const info=FI.get(normId(hit));
-    if(info && mappedIdForInfo(hit,info)===nid)return true;
-  }
-  return false;
-}
-
 function diseaseContainsMapId(key,id){
-  const hits=effectiveDiseaseHits(key);
-  return setContainsMapId(hits,id);
+  /* Samostatný cestovatelský region (např. Zanzibar nebo Bali) nesmí svým
+     výsledkem obarvit celý nadřazený stát. Region má vlastní bod v mapě;
+     polygon státu se řídí pouze výsledkem daného státu. */
+  return effectiveDiseaseHits(key).has(normId(id));
 }
 
 function diseaseFacetForId(key,id){
@@ -697,9 +804,10 @@ function diseaseFacetForId(key,id){
 function diseaseFacetForMapId(key,id){
   if(key!=='yellow-fever')return null;
   if(!diseaseContainsMapId(key,id))return null;
+  const nid=normId(id);
   const facets=diseaseFacets.get(key);
-  const risk=setContainsMapId(facets?.risk,id);
-  const entry=setContainsMapId(facets?.entry,id);
+  const risk=facets?.risk?.has(nid)||false;
+  const entry=facets?.entry?.has(nid)||false;
   if(risk&&entry)return'both';
   if(entry)return'entry';
   return'risk';
@@ -725,13 +833,18 @@ function renderFilterResults(){
   box.hidden=false;
   box.classList.add('open');
 
-  const chips=hits.map(({id,info})=>{
+  const chipFor=({id,info})=>{
     const facet=diseaseFacetForId(activeDisease,id);
     const facetLabel=facet==='both'?'riziko i vstupní podmínka':facet==='entry'?'pouze vstupní podmínka':facet==='risk'?'riziko žluté zimnice':'';
     return `<button class="fr-chip${facet?` yf-${facet}`:''}" type="button" data-fr-country="${esc(id)}"${facetLabel?` title="${esc(facetLabel)}"`:''}>${esc(info.name)}</button>`;
-  }).join('');
-  const sourceNote=filterSourceNote(activeDisease,hits.length);
-  const facetLegend=yellowFeverFacetLegend(activeDisease,hits);
+  };
+  const chips=hits.map(chipFor).join('');
+  const isYellowFever=activeDisease==='yellow-fever';
+  const sourceNote=isYellowFever?'':filterSourceNote(activeDisease,hits.length);
+  const facetOverview=isYellowFever?yellowFeverOverview(hits):'';
+  const resultsContent=isYellowFever
+    ? yellowFeverColumns(hits,chipFor)
+    : (hits.length?`<div class="fr-grid">${chips}</div>`:`<div class="fr-empty">Pro tento filtr se zatím nepodařilo najít žádnou destinaci. Může jít o riziko, které zatím není u destinací jednotně vedené.</div>`);
 
   box.innerHTML=`<div class="fr-head">
     <div>
@@ -740,41 +853,68 @@ function renderFilterResults(){
       <div class="fr-sub">Kliknutím na destinaci otevřete detail v mapě. Další související nemoci a rizika najdete po otevření detailu destinace.</div>
     </div>
   </div>
+  ${facetOverview}
   ${sourceNote}
-  ${facetLegend}
-  ${hits.length?`<div class="fr-grid">${chips}</div>`:`<div class="fr-empty">Pro tento filtr se zatím nepodařilo najít žádnou destinaci. Může jít o riziko, které zatím není u destinací jednotně vedené.</div>`}`;
+  ${resultsContent}`;
 
   box.querySelectorAll('[data-fr-country]').forEach(btn=>{
     btn.addEventListener('click',()=>selectCountry(normId(btn.dataset.frCountry)));
   });
 }
 
-function yellowFeverFacetLegend(key,hits){
-  if(key!=='yellow-fever')return'';
+function yellowFeverOverview(hits){
   const counts={risk:0,entry:0,both:0};
   hits.forEach(({id})=>{
-    const facet=diseaseFacetForId(key,id);
+    const facet=diseaseFacetForId('yellow-fever',id);
     if(facet)counts[facet]++;
   });
-  return `<div class="fr-facet-legend" aria-label="Význam barev filtru žluté zimnice">
-    <span><i class="yf-risk"></i>Riziko / doporučené očkování <strong>${counts.risk}</strong></span>
-    <span><i class="yf-entry"></i>Pouze vstupní podmínka <strong>${counts.entry}</strong></span>
-    <span><i class="yf-both"></i>Obojí <strong>${counts.both}</strong></span>
+  const cfg=staticDiseaseConfig('yellow-fever');
+  const failures=diseaseFacets.get('yellow-fever')?.failures?.size||0;
+  const fallback=failures?` U ${failures} destinací se nepodařilo načíst vstupní podmínku; aplikace je zkusí doplnit při dalším použití filtru po 90 sekundách.`:'';
+  return `<div class="fr-yf-overview">
+    <div class="fr-yf-copy">
+      <strong>Proč jsou tu tři barvy?</strong>
+      <span>Oddělují místní riziko od pouhé vstupní podmínky. Riziko neznamená aktuální epidemii, ale doporučení očkování alespoň pro část území.${esc(fallback)}</span>
+      <span class="fr-yf-links">
+        <a href="${esc(DISEASES['yellow-fever']?.url||'#')}" target="_blank" rel="noopener noreferrer">Vstupní podmínky: Avenier</a>
+        <a href="${esc(cfg?.sourceUrl||'#')}" target="_blank" rel="noopener noreferrer">Místní riziko: ${esc(cfg?.sourceLabel||'CDC')}</a>
+        ${cfg?.reviewedLabel?`<small>${esc(cfg.reviewedLabel)}</small>`:''}
+      </span>
+    </div>
+    <div class="fr-facet-legend" aria-label="Význam barev filtru žluté zimnice">
+      <span><i class="yf-risk"></i>Riziko <strong>${counts.risk}</strong></span>
+      <span><i class="yf-entry"></i>Jen vstupní podmínka <strong>${counts.entry}</strong></span>
+      <span><i class="yf-both"></i>Obojí <strong>${counts.both}</strong></span>
+    </div>
   </div>`;
+}
+
+function yellowFeverColumns(hits,chipFor){
+  const definitions=[
+    {key:'risk',title:'Riziko v destinaci',description:'CDC doporučuje očkování alespoň pro část území.'},
+    {key:'entry',title:'Jen vstupní podmínka',description:'Požadavek souvisí se vstupem nebo příletem z endemické oblasti.'},
+    {key:'both',title:'Riziko i podmínka',description:'Platí místní riziko i vstupní podmínka.'}
+  ];
+  const groups={risk:[],entry:[],both:[]};
+  hits.forEach(hit=>{
+    const facet=diseaseFacetForId('yellow-fever',hit.id);
+    if(facet&&groups[facet])groups[facet].push(hit);
+  });
+  return `<div class="fr-yf-columns">${definitions.map(def=>{
+    const items=groups[def.key];
+    return `<section class="fr-yf-column yf-${def.key}" aria-labelledby="yf-column-${def.key}">
+      <header class="fr-yf-column-head">
+        <span class="fr-yf-dot" aria-hidden="true"></span>
+        <div><h3 id="yf-column-${def.key}">${esc(def.title)}</h3><p>${esc(def.description)}</p></div>
+        <strong>${items.length}</strong>
+      </header>
+      <div class="fr-yf-list">${items.length?items.map(chipFor).join(''):'<span class="fr-yf-none">Žádná destinace</span>'}</div>
+    </section>`;
+  }).join('')}</div>`;
 }
 
 function filterSourceNote(key,hitCount){
   const staticCfg=staticDiseaseConfig(key);
-  if(key==='yellow-fever'&&staticCfg){
-    const facets=diseaseFacets.get(key);
-    const fallback=facets?.failures?.size?` U ${facets.failures.size} nenačtených detailů byl pro riziko použit záložní seznam CDC; vstupní podmínku u nich nelze potvrdit.`:'';
-    return `<div class="fr-source-note">
-      <strong>Jak číst tento filtr:</strong> ${esc(staticCfg.note||'')}${esc(fallback)}
-      <a href="${esc(DISEASES[key]?.url||'#')}" target="_blank" rel="noopener noreferrer">Avenier</a>
-      <a href="${esc(staticCfg.sourceUrl||'#')}" target="_blank" rel="noopener noreferrer">${esc(staticCfg.sourceLabel||'CDC')}</a>
-      ${staticCfg.reviewedLabel?`<span>· ${esc(staticCfg.reviewedLabel)}</span>`:''}
-    </div>`;
-  }
   if(staticCfg){
     return `<div class="fr-source-note">
       <strong>Jak číst tento filtr:</strong> ${esc(staticCfg.note||'')}
@@ -787,8 +927,10 @@ function filterSourceNote(key,hitCount){
   const availableCount=[...FI.values()].filter(info=>info.has).length;
   const broad=availableCount>0 && hitCount/availableCount>=.85;
   const broadNote=broad?' Tato položka je v datech uvedena téměř u všech destinací, takže filtr mapu výrazně nezúží.':'';
+  const meta=diseaseIndexMeta.get(key);
+  const coverageNote=meta?.failures?.size?` U ${meta.failures.size} destinací se detail nepodařilo načíst, takže výsledek může být neúplný. Při dalším použití filtru po 90 sekundách se aplikace pokusí data doplnit.`:'';
   return `<div class="fr-source-note">
-    <strong>Jak číst tento filtr:</strong> Zvýraznění znamená, že Avenier uvádí tuto nemoc nebo očkování v detailu destinace mezi povinnými, základními či doporučenými položkami. Nejde samo o sobě o mapu potvrzeného místního přenosu.${esc(broadNote)}
+    <strong>Jak číst tento filtr:</strong> Zvýraznění znamená, že Avenier uvádí tuto nemoc nebo očkování v detailu destinace mezi povinnými, základními či doporučenými položkami. Nejde samo o sobě o mapu potvrzeného místního přenosu.${esc(broadNote)} ${esc(coverageNote)}
     ${cfg?.url?`<a href="${esc(cfg.url)}" target="_blank" rel="noopener noreferrer">Detail Avenier</a>`:''}
   </div>`;
 }
@@ -807,13 +949,34 @@ function repaintMap(){
     .attr('stroke-width',d=>(selMarkId!==null&&normId(d.id)===normId(selMarkId)?1.7:1)/(currentZoomK||1));
 }
 
+function renderMapFilterLegend(){
+  const box=document.getElementById('map-filter-legend');
+  if(!box)return;
+  if(activeDisease!=='yellow-fever'){
+    box.hidden=true;
+    box.innerHTML='';
+    return;
+  }
+  box.hidden=false;
+  box.innerHTML=`<strong>Žlutá zimnice</strong>
+    <span class="mfl-note">Barva rozlišuje místní riziko a vstupní podmínky.</span>
+    <span class="mfl-items">
+      <span><i class="yf-risk"></i>Riziko</span>
+      <span><i class="yf-entry"></i>Jen vstup</span>
+      <span><i class="yf-both"></i>Obojí</span>
+    </span>`;
+}
+
 function diseaseSourceLabel(key){
   const src=diseaseIndexSource.get(key);
+  if(src==='hybrid-index')return ' (zdroj: pravidelný index Avenier API + CDC)';
+  if(src==='hybrid-partial')return ' (zdroj: Avenier API + CDC, neúplná data)';
   if(src==='hybrid')return ' (zdroj: Avenier API + CDC)';
   if(src==='static-index')return ` (zdroj: ${staticDiseaseConfig(key)?.sourceLabel||'odborný index'})`;
   if(src==='api-row')return ' (zdroj: přímé API značky)';
-  if(src==='api-index')return ' (zdroj: backendový index)';
+  if(src==='api-index')return ' (zdroj: pravidelný index Avenier API)';
   if(src==='detail')return ' (zdroj: detail destinací)';
+  if(src==='detail-partial')return ' (zdroj: detail destinací, neúplná data)';
   return '';
 }
 
@@ -849,6 +1012,7 @@ function setupFilterInfoDismiss(){
 
 async function setDiseaseFilter(key){
   closeFilterInfo();
+  closePanel();
   resetMapViewport();
   requestedDisease=key||'all';
   if(requestedDisease!=='all' && !DISEASES[requestedDisease]){
@@ -863,6 +1027,7 @@ async function setDiseaseFilter(key){
 
   if(requestedDisease==='all'){
     activeDisease='all';
+    renderMapFilterLegend();
     const status=document.getElementById('filter-status');
     const loader=document.getElementById('filter-loader');
     if(loader)loader.classList.remove('on');
@@ -874,6 +1039,7 @@ async function setDiseaseFilter(key){
   }
 
   activeDisease=requestedDisease;
+  renderMapFilterLegend();
   const status=document.getElementById('filter-status');
   const loader=document.getElementById('filter-loader');
   if(loader)loader.classList.add('on');
@@ -1384,6 +1550,34 @@ function canonicalFeatureId(f){
   return raw;
 }
 
+function mergeSomaliaMapFeatures(topology,featureCollection){
+  const geometries=topology?.objects?.countries?.geometries||[];
+  const somaliaParts=geometries.filter(g=>{
+    const name=slugKey(g?.properties?.name||'');
+    return name==='somalia'||name==='somaliland';
+  });
+  if(somaliaParts.length<2)return featureCollection;
+  const mergedGeometry=topojson.merge(topology,somaliaParts);
+  featureCollection.features=featureCollection.features.filter(f=>{
+    const name=slugKey(f?.properties?.name||'');
+    return name!=='somalia'&&name!=='somaliland';
+  });
+  featureCollection.features.push({
+    type:'Feature',
+    id:'706',
+    properties:{name:'Somalia'},
+    geometry:mergedGeometry
+  });
+  return featureCollection;
+}
+
+function isSomaliaInternalBoundary(a,b){
+  const nameA=slugKey(a?.properties?.name||'');
+  const nameB=slugKey(b?.properties?.name||'');
+  const somaliaNames=new Set(['somalia','somaliland']);
+  return somaliaNames.has(nameA)&&somaliaNames.has(nameB);
+}
+
 function featureId(d){
   return normId(d?._numId ?? d?.id);
 }
@@ -1674,7 +1868,7 @@ function setupAdminDiseaseEditor(apiRows,unmatchedApi){
   });
 }
 
-function renderDebugPanel(apiRows,unmatchedApi){
+function renderDebugPanel(apiRows,unmatchedApi,baseMapDestinationCount=null){
   const panel=document.getElementById('debug-panel');
   if(!panel)return;
   const qs=new URLSearchParams(window.location.search);
@@ -1682,10 +1876,14 @@ function renderDebugPanel(apiRows,unmatchedApi){
   if(!show)return;
   panel.classList.add('open');
   const items=unmatchedApi.map(x=>`<span class="dbg-chip">${esc(x.name||x.id||'bez názvu')} <code>${esc(x.id||'')}</code></span>`).join('');
+  const withoutApi=[...FI.values()].filter(x=>!x.has);
+  const withoutApiItems=withoutApi.map(x=>`<span class="dbg-chip">${esc(x.name||x.id||'bez názvu')} <code>${esc(x.id||'')}</code></span>`).join('');
   panel.innerHTML=`<strong>Diagnostika párování API</strong><br>
     Spárováno: ${apiRows.length-unmatchedApi.length} / ${apiRows.length}. 
+    Základních položek polygonové mapy: ${baseMapDestinationCount??'—'}; finálních mapových položek: ${FI.size}; s detailem API: ${[...FI.values()].filter(x=>x.has).length}; bez detailu: ${withoutApi.length}.<br>
     Nespárované položky jsou často teritoria nebo cestovatelské destinace, které nemají vlastní polygon v mapě.
-    <div class="dbg-list">${items||'<span class="dbg-chip">Vše spárováno</span>'}</div>`;
+    <div class="dbg-list">${items||'<span class="dbg-chip">Všechny API destinace jsou spárované</span>'}</div>
+    <div class="dbg-list">${withoutApiItems||'<span class="dbg-chip">Všechny mapové položky mají detail</span>'}</div>`;
 }
 
 /* ── Inicializace mapy ── */
@@ -1717,7 +1915,7 @@ async function initMap(){
   pg=d3.geoPath().projection(prj);
 
   /* Features */
-  const feats=topojson.feature(wt,wt.objects.countries);
+  const feats=mergeSomaliaMapFeatures(wt,topojson.feature(wt,wt.objects.countries));
   feats.features.forEach(f=>{
     const id=canonicalFeatureId(f);
     f._numId=id;
@@ -1746,6 +1944,8 @@ async function initMap(){
       search:unique([name,en,cz,slug,...keys]).join(' ')
     });
   });
+
+  const baseMapDestinationCount=FI.size;
 
   /* Donutit přiřazení destinací, které API má, ale mapa/API používají odlišný název,
      nebo jde o ostrov/region/teritorium bez vlastního polygonu. */
@@ -1822,13 +2022,27 @@ async function initMap(){
   });
   const matchedApiRows=api.rows.length-unmatchedApi.length;
   st.textContent=api.rows.length?`${matchedApiRows} z ${api.rows.length} destinací připraveno`:'Data se nepodařilo načíst';
+  const destinationSummary=document.getElementById('destination-summary');
+  if(destinationSummary){
+    const regionalSlugs=new Set(REGIONAL_DESTINATION_SLUGS.map(slugKey));
+    const regionalCount=api.rows.filter(row=>regionalSlugs.has(slugKey(row.id||row.slug||''))).length;
+    const stateLikeCount=Math.max(0,api.rows.length-regionalCount);
+    const mapOnlyCount=[...FI.values()].filter(info=>!info.has).length;
+    destinationSummary.innerHTML=api.rows.length
+      ? `<strong>${api.rows.length} destinací s doporučeními</strong><span>${stateLikeCount} států nebo samostatně vedených zemí + ${regionalCount} teritorií a regionů</span><span>${mapOnlyCount} dalších mapových území bez detailu</span>`
+      : '<strong>Přehled destinací se nepodařilo načíst.</strong>';
+  }
   window.AvenierMapDebug={
     apiRows:api.rows,
     matchedApiRows,
     unmatchedApi,
-    unmatchedNames:unmatchedApi.map(x=>x.name||x.id)
+    unmatchedNames:unmatchedApi.map(x=>x.name||x.id),
+    baseMapDestinationCount,
+    mapDestinationCount:FI.size,
+    destinationsWithApi:matchedEntries.length,
+    destinationsWithoutApi:[...FI.values()].filter(x=>!x.has).map(x=>({id:x.id,name:x.name,slug:x.slug}))
   };
-  renderDebugPanel(api.rows,unmatchedApi);
+  renderDebugPanel(api.rows,unmatchedApi,baseMapDestinationCount);
   renderAdminPanel(api.rows,unmatchedApi);
   if(unmatchedApi.length){
     console.warn('Nepřiřazené destinace z API:', unmatchedApi.map(x=>({id:x.id,name:x.name,www:x.www})));
@@ -1897,7 +2111,7 @@ async function initMap(){
 
   /* Hranice */
   bordersPath=gv.append('path')
-    .datum(topojson.mesh(wt,wt.objects.countries,(a,b)=>a!==b))
+    .datum(topojson.mesh(wt,wt.objects.countries,(a,b)=>a!==b&&!isSomaliaInternalBoundary(a,b)))
     .attr('d',pg).attr('fill','none').attr('stroke','rgba(255,255,255,0.40)').attr('stroke-width',.55).attr('stroke-linejoin','round').attr('vector-effect','non-scaling-stroke')
     .style('pointer-events','none');
 

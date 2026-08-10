@@ -1,0 +1,30 @@
+name: Kontrola aplikace
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Načíst repozitář
+        uses: actions/checkout@v4
+
+      - name: Nastavit Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Ověřit syntaxi a data
+        run: |
+          node --check assets/js/config.js
+          node --check assets/js/app.js
+          node --check scripts/generate-disease-index.mjs
+          node --check scripts/verify-app.mjs
+          node scripts/verify-app.mjs
