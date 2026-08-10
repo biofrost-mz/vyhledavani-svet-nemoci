@@ -199,11 +199,19 @@ Opravy nalezené při systematickém průchodu aplikací.
 - neslučitelný sdílený odkaz filtru a destinace už mapu nepřiblíží na nesouvisející místo; vysvětlí situaci a nabídne zrušení filtru,
 - rozšířená skupina nemocí se automaticky otevře, pokud obsahuje právě aktivní filtr,
 - název aplikace nově zahrnuje očkování i zdravotní rizika a názvy destinací se zobrazují primárně česky,
-- mobilní karta destinace je kratší, bez vlastního posuvníku a obsahuje jen dvě hlavní akce,
+- mobilní karta destinace je kompaktní a bez vlastního posuvníku,
 - nemoci z CDC a WHO jsou v kompaktních rozbalovacích kartách; jejich podrobnosti, datum a odkazy zůstávají dostupné,
 - zdroje, legenda a vysvětlovací tlačítka mají větší text i ovládací plochu a barevné kategorie doplňují textové značky,
 - mobilní zkratky jsou označené jako „Oblíbené destinace“ a odkazy na destinaci mají jednotný konkrétní název,
 - statické assety mají verzovaný cache-buster `v=24.1`.
+
+## v24.2 – mobilní detail destinace
+
+- mobilní mapa je vyšší a karta destinace má plně viditelné dvousloupcové rozvržení všech čtyř akcí,
+- karta používá modrozelený akcent odlišený od zeleně zvýrazněných států; název destinace a zavírací tlačítko jsou větší a lépe odsazené,
+- odznaky počtů očkování jsou na mobilu i desktopu ovladatelná tlačítka a přenesou uživatele k odpovídající části plného detailu,
+- plný detail destinace má pouze křížek bez textu, umístěný v pravém horním rohu,
+- statické assety mají verzovaný cache-buster `v=24.2`.
 
 ## v24.0 – srozumitelnější detail, správná čeština a zdroje
 
@@ -223,6 +231,4 @@ Opravy nalezené při systematickém průchodu aplikací.
 ### Známá omezení
 - aplikaci je potřeba servírovat přes HTTP(S); při otevření přes `file://` selže načtení dat kvůli CORS,
 - filtry žloutenky A i B (230/230), meningokoka (229), spalniček (228) a chřipky (226) zvýrazní téměř celou mapu; upozorňuje na to poznámka pod výsledky,
-- aktivní filtr vybraný ze skupiny „Další nemoci a rizika“ není v zavřené skupině vidět, stav sděluje jen text pod filtry a legenda,
-- mapa není ovladatelná z klávesnice, alternativou zůstává vyhledávání,
-- popisek „Klikni na i pro vysvětlení“ a drobné texty v mapové legendě nesplňují kontrast WCAG AA.
+- mapa není ovladatelná z klávesnice, alternativou zůstává vyhledávání.

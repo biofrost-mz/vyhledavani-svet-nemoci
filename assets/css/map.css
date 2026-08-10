@@ -1416,3 +1416,89 @@ a:hover{color:var(--oc-green)}
   .mfl-help summary{min-height:28px;font-size:11.5px}
   .mfl-help summary::after{width:20px;height:20px;font-size:12px}
 }
+
+/* ==== v24.2 mobilní karta destinace a navigační odznaky ==== */
+.mi-badge[data-mi-section],.vcb[data-detail-section]{
+  appearance:none;
+  cursor:pointer;
+  line-height:1.35;
+  text-align:left;
+  transition:transform .16s ease,box-shadow .16s ease,filter .16s ease;
+}
+.mi-badge[data-mi-section]:hover,.vcb[data-detail-section]:hover{
+  transform:translateY(-1px);
+  filter:brightness(.98);
+  box-shadow:0 5px 13px rgba(0,103,120,.10);
+}
+.mi-badge[data-mi-section]:focus-visible,.vcb[data-detail-section]:focus-visible{
+  outline:3px solid rgba(0,103,120,.24);
+  outline-offset:2px;
+}
+.sl:focus{outline:none}
+.sl:focus-visible,.external-diseases:focus-visible{
+  outline:3px solid rgba(0,103,120,.22);
+  outline-offset:5px;
+  border-radius:6px;
+}
+
+/* Zavření plného detailu patří vždy do pravého horního rohu karty. */
+.card>.bclose{
+  position:absolute;
+  top:18px;
+  right:18px;
+  z-index:3;
+  width:38px;
+  height:38px;
+  padding:0;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border:1px solid rgba(0,103,120,.18);
+  color:var(--oc-blue);
+  font-size:22px;
+  line-height:1;
+}
+.card>.chd{padding-right:52px}
+
+@media(max-width:640px){
+  /* Vyšší mapa dává kartě dost prostoru bez ořezu mapového objektu. */
+  #mw,#av-map{height:500px!important}
+  .map-info{
+    bottom:10px!important;
+    padding:18px 14px 14px!important;
+    border-top-color:var(--oc-blue)!important;
+    background:linear-gradient(145deg,rgba(235,248,250,.98),rgba(255,255,255,.98))!important;
+    box-shadow:0 14px 36px rgba(0,45,56,.28)!important;
+  }
+  .map-info .mi-head{position:relative;margin-bottom:10px;padding:5px 46px 0 2px}
+  .map-info .mi-title{font-size:25px;line-height:1.16;margin-top:4px;color:var(--oc-blue)}
+  .map-info .mi-label{font-size:10px;color:#718984}
+  .map-info .mi-close{
+    position:absolute;
+    top:8px;
+    right:0;
+    width:38px;
+    height:38px;
+    border-color:rgba(0,103,120,.18);
+    color:var(--oc-blue);
+    font-size:20px;
+  }
+  .map-info .mi-badges{gap:7px;margin:6px 0 10px;padding:0 0 9px}
+  .map-info .mi-badge{font-size:11px;padding:6px 9px}
+  .map-info .mi-actions{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:7px}
+  .map-info .mi-actions .mi-btn{
+    min-height:42px;
+    padding:8px 9px;
+    font-size:10.5px;
+    line-height:1.3;
+    display:inline-flex;
+    align-items:center;
+  }
+  .map-info .mi-btn.center,.map-info .mi-btn.share,.map-info .mi-btn.ghost{
+    display:inline-flex;
+    grid-column:auto;
+  }
+  .card{padding-top:27px}
+  .card>.bclose{top:16px;right:14px;width:40px;height:40px}
+  .card>.chd{padding-right:48px}
+}

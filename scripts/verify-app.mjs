@@ -6,6 +6,7 @@ const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const index=JSON.parse(await readFile(resolve(root,'assets/data/disease-index.json'),'utf8'));
 const html=await readFile(resolve(root,'index.html'),'utf8');
 const config=await readFile(resolve(root,'assets/js/config.js'),'utf8');
+const mapCss=await readFile(resolve(root,'assets/css/map.css'),'utf8');
 
 function assert(condition,message){
   if(!condition)throw new Error(message);
@@ -122,6 +123,11 @@ assert(html.includes('Mapa očkování a zdravotních rizik')&&html.includes('O�
 assert(html.includes('quick-label">Oblíbené destinace')&&html.includes('class="quick-list"'),'Mobilní rychlé destinace nemají srozumitelný kontext.');
 assert(app.includes('<details class="external-card">')&&app.includes('EXTERNAL_DETAIL_SUMMARIES'),'Externí nemoci nejsou ve zkrácených rozbalovacích kartách.');
 assert(app.includes("mark:'R+V'")&&app.includes("mark:'✓'")&&app.includes('${esc(it.mark||\'\')}'),'Barevné kategorie nemají doplňkové textové značky.');
+assert(app.includes('function detailBadgeHtml')&&app.includes('data-mi-section')&&app.includes('data-detail-section'),'Odznaky kategorií nefungují jako navigace do detailu.');
+assert(app.includes('function scrollToDetailSection')&&app.includes('vax-section-${esc(key)}'),'Navigační odznaky nemají cílové sekce detailu.');
+assert(app.includes('aria-label="Zavřít detail destinace">×</button>')&&!app.includes('Zavřít ✕'),'Detail destinace stále používá textové tlačítko zavření.');
+assert(mapCss.includes('#mw,#av-map{height:500px!important}')&&mapCss.includes('.map-info .mi-btn.center,.map-info .mi-btn.share,.map-info .mi-btn.ghost'),'Mobilní mapa nebo úplná sada akcí v kartě nemá očekávané rozvržení.');
+assert(mapCss.includes('border-top-color:var(--oc-blue)!important')&&mapCss.includes('.card>.bclose'),'Karta destinace nemá modrozelené odlišení nebo rohové zavírací tlačítko.');
 
 /* Sdílení stavu přes URL. */
 assert(/URL_PARAM=\{disease:'filtr',facet:'kategorie',destination:'zeme'\}/.test(app),'Chybí parametry pro sdílení stavu v URL.');
@@ -141,7 +147,7 @@ assert(app.includes("label:'Ostatní destinace'")&&!/function exportLegendItems[
 assert(app.includes('function drawGlassPanel')&&app.includes('sourceWidth'),'Dominantní export nemá kompaktní skleněné panely.');
 assert(app.includes('drawGlassPanel(ctx,128,104,570,500,28)'),'Hlavní informační panel dominantního exportu nemá zkrácenou šířku.');
 assert(!app.includes('drawGlassPanel(ctx,3030,104'),'Logo dominantního exportu má stále podkladový panel.');
-assert(/map-export-dialog\[open\][^{]*\{[^}]*place-items:center/.test(await readFile(resolve(root,'assets/css/map.css'),'utf8')),'Dialog exportu není vycentrovaný.');
+assert(/map-export-dialog\[open\][^{]*\{[^}]*place-items:center/.test(mapCss),'Dialog exportu není vycentrovaný.');
 const exportLogo=await stat(resolve(root,'assets/img/avenier-logo.png')).catch(()=>null);
 assert(exportLogo?.isFile()&&exportLogo.size>10000,'Chybí použitelné logo Avenier pro export.');
 

@@ -755,7 +755,7 @@ function externalDiseaseItems(info,data){
 function externalDiseaseSectionHtml(info,data){
   const items=externalDiseaseItems(info,data);
   if(!items.length)return'';
-  return `<section class="external-diseases" aria-labelledby="external-diseases-title">
+  return `<section class="external-diseases" id="vax-section-external" aria-labelledby="external-diseases-title">
     <div class="external-diseases-head">
       <div>
         <p class="external-kicker">Doplňující odborné zdroje</p>
@@ -2033,6 +2033,21 @@ function moreAboutDestinationLabel(info){
   return `Více informací: ${cleanName(info?.name||'destinace')}`;
 }
 
+function detailBadgeHtml(className,label,section,action='detail-section'){
+  return `<button class="${className}" type="button" data-${action}="${esc(section)}">${esc(label)}</button>`;
+}
+
+function scrollToDetailSection(section=''){
+  const panel=document.getElementById('pnl');
+  if(!panel)return;
+  const target=section?document.getElementById(`vax-section-${section}`):panel;
+  (target||panel).scrollIntoView({behavior:'smooth',block:'start'});
+  if(target){
+    target.setAttribute('tabindex','-1');
+    target.focus({preventScroll:true});
+  }
+}
+
 function destinationMatchesActiveFilter(info){
   return !info||!activeDisease||activeDisease==='all'||!diseaseIndex.has(activeDisease)||diseaseContainsMapId(activeDisease,info.id);
 }
@@ -2053,7 +2068,9 @@ function renderMapInfo(info,data=null,loading=false){
   const {pov,zak,dop}=vaxArrays(data);
   const np=pov.length, nz=zak.length, nd=dop.length;
   const badges=data
-    ? `<span class="mi-badge p">${countWithNoun(np,...COUNT_FORMS.required)}</span><span class="mi-badge z">${countWithNoun(nz,...COUNT_FORMS.basic)}</span><span class="mi-badge d">${countWithNoun(nd,...COUNT_FORMS.recommended)}</span>`
+    ? detailBadgeHtml('mi-badge p',countWithNoun(np,...COUNT_FORMS.required),'povinne','mi-section')+
+      detailBadgeHtml('mi-badge z',countWithNoun(nz,...COUNT_FORMS.basic),'zakladni','mi-section')+
+      detailBadgeHtml('mi-badge d',countWithNoun(nd,...COUNT_FORMS.recommended),'doporuceni','mi-section')
     : (info.has?`<span class="mi-badge">Načítám doporučení…</span>`:`<span class="mi-badge">Bez cestovních doporučení</span>`);
   box.innerHTML=`<div class="mi-head">
     <div>
@@ -2076,6 +2093,11 @@ function renderMapInfo(info,data=null,loading=false){
   box.classList.add('open');
   const scrollToPanel=()=>document.getElementById('pnl')?.scrollIntoView({behavior:'smooth',block:'start'});
   box.onclick=async e=>{
+    const sectionEl=e.target.closest('[data-mi-section]');
+    if(sectionEl){
+      scrollToDetailSection(sectionEl.dataset.miSection);
+      return;
+    }
     const actionEl=e.target.closest('[data-mi-action]');
     if(!actionEl)return;
     const action=actionEl.dataset.miAction;
@@ -2115,14 +2137,12 @@ function renderPanel(info){
   renderMapInfo(info,getCachedDetail(info.slug),info.has&&cacheState==='miss');
 
   wrap.innerHTML=`<div class="card">
+    <button class="bclose" id="bcl" type="button" aria-label="Zavřít detail destinace">×</button>
     <div class="chd">
       <div>
         <p class="dlbl">Vybraná destinace</p>
         <h2 class="dname">${esc(info.name)}</h2>
         <div class="vcnts" id="vcc"></div>
-      </div>
-      <div class="hdr">
-        <button class="bclose" id="bcl">Zavřít ✕</button>
       </div>
     </div>
     <div class="div"></div>
@@ -2166,12 +2186,13 @@ function renderNoApiData(info){
   const vc=document.getElementById('vcc');
   const vb=document.getElementById('vb');
   const external=externalDiseaseItems(info,null);
-  if(vc)vc.innerHTML=external.length?`<span class="vcb vcbx">${countWithNoun(external.length,...COUNT_FORMS.external)}</span>`:'';
+  if(vc)vc.innerHTML=external.length?detailBadgeHtml('vcb vcbx',countWithNoun(external.length,...COUNT_FORMS.external),'external'):'';
   if(vb)vb.innerHTML=`${destinationFilterNoticeHtml(info)}<p class="cnote">
     Pro destinaci <strong>${esc(info.name)}</strong> zatím nemáme cestovní doporučení.
     Očkování a ochranu před nemocemi s vámi rádi projdeme osobně — naši specialisté
     v očkovacích centrech Avenier poradí i s destinacemi, které v mapě nenajdete.
   </p>${externalDiseaseSectionHtml(info,null)}${consultationNoteHtml()}`;
+  setupDetailBadgeButtons(vc);
 }
 
 const VAX_HELP={
@@ -2181,7 +2202,7 @@ const VAX_HELP={
 };
 
 function sectionTitle(cls,label,key){
-  return `<p class="sl ${cls}">${esc(label)} <button class="help-btn" type="button" data-help="${esc(key)}" aria-label="Vysvětlit: ${esc(label)}">?</button></p>
+  return `<p class="sl ${cls}" id="vax-section-${esc(key)}">${esc(label)} <button class="help-btn" type="button" data-help="${esc(key)}" aria-label="Vysvětlit: ${esc(label)}">?</button></p>
   <div class="help-note ${cls}" data-help-note="${esc(key)}">${esc(VAX_HELP[key])}</div>`;
 }
 
@@ -2207,6 +2228,12 @@ function setupHelpButtons(root=document){
   });
 }
 
+function setupDetailBadgeButtons(root=document){
+  root?.querySelectorAll('[data-detail-section]').forEach(btn=>{
+    btn.addEventListener('click',()=>scrollToDetailSection(btn.dataset.detailSection));
+  });
+}
+
 function renderVax(data){
   if(curInfo)renderMapInfo(curInfo,data,false);
   const vc=document.getElementById('vcc');
@@ -2229,10 +2256,10 @@ function renderVax(data){
   const external=externalDiseaseItems(curInfo,data);
 
   if(vc)vc.innerHTML=
-    `<span class="vcb vcbp">${countWithNoun(np,...COUNT_FORMS.required)}</span>`+
-    `<span class="vcb vcbz">${countWithNoun(nz,...COUNT_FORMS.basic)}</span>`+
-    `<span class="vcb vcbd">${countWithNoun(nd,...COUNT_FORMS.recommended)}</span>`+
-    (external.length?`<span class="vcb vcbx">${countWithNoun(external.length,...COUNT_FORMS.external)}</span>`:'');
+    detailBadgeHtml('vcb vcbp',countWithNoun(np,...COUNT_FORMS.required),'povinne')+
+    detailBadgeHtml('vcb vcbz',countWithNoun(nz,...COUNT_FORMS.basic),'zakladni')+
+    detailBadgeHtml('vcb vcbd',countWithNoun(nd,...COUNT_FORMS.recommended),'doporuceni')+
+    (external.length?detailBadgeHtml('vcb vcbx',countWithNoun(external.length,...COUNT_FORMS.external),'external'):'');
 
   let h=destinationFilterNoticeHtml(curInfo);
   h+=sectionHtml('p','Povinná očkování','povinne',pov,'Pro tuto destinaci nejsou uvedená žádná povinná očkování.');
@@ -2243,6 +2270,7 @@ function renderVax(data){
 
   vb.innerHTML=h;
   setupHelpButtons(vb);
+  setupDetailBadgeButtons(vc);
 }
 
 function closePanel(){
