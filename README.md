@@ -23,3 +23,9 @@ Verze v21 (obsah + UX + právní jasnost):
 Dokumentace změn:
 - [TECHNIKA_A_FUNKCNOST_V20](docs/TECHNIKA_A_FUNKCNOST_V20.md)
 - [OBSAH_UX_A_PRAVNI_V21](docs/OBSAH_UX_A_PRAVNI_V21.md)
+
+Verze v22.1 (filtry):
+- filtr malárie používá samostatný frontendový index podle CDC Yellow Book 2026,
+- u malárie se zobrazuje zdroj, datum kontroly a vysvětlení regionálního/sezónního rizika,
+- odstraněno osm duplicitních virtuálních destinací ve vyhledávání a výsledcích filtrů,
+- statické assety mají verzovaný cache-buster `v=22.1`.

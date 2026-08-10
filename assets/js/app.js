@@ -462,6 +462,42 @@ function seedDiseaseIndexFromApiRows(rows){
   return added;
 }
 
+function staticDiseaseConfig(key){
+  if(typeof STATIC_DISEASE_INDEX==='undefined' || !STATIC_DISEASE_INDEX)return null;
+  return STATIC_DISEASE_INDEX[key]||null;
+}
+
+function seedDiseaseIndexFromStaticConfig(rows){
+  if(typeof STATIC_DISEASE_INDEX==='undefined' || !STATIC_DISEASE_INDEX)return{added:0,unmatched:[]};
+  const rowBySlug=new Map();
+  (rows||[]).forEach(row=>apiRowKeys(row).forEach(key=>rowBySlug.set(key,row)));
+  let added=0;
+  const unmatched=[];
+
+  Object.entries(STATIC_DISEASE_INDEX).forEach(([key,cfg])=>{
+    const ids=[];
+    (cfg?.destinationSlugs||[]).forEach(rawSlug=>{
+      const slug=slugKey(rawSlug);
+      const row=rowBySlug.get(slug);
+      if(!row){
+        unmatched.push({key,slug});
+        return;
+      }
+      const resolved=resolveApiRowDestinationIds(row);
+      if(!resolved.length){
+        unmatched.push({key,slug});
+        return;
+      }
+      ids.push(...resolved);
+    });
+    if(ids.length){
+      upsertDiseaseIndex(key,ids,'static-index');
+      added+=unique(ids.map(normId)).length;
+    }
+  });
+  return{added,unmatched};
+}
+
 async function loadDiseaseIndexFromApiIfConfigured(){
   if(!diseaseIndexApiUrl)return;
   if(diseaseIndexApiLoadPromise)return diseaseIndexApiLoadPromise;
@@ -562,6 +598,12 @@ function renderFilterResults(){
   box.classList.add('open');
 
   const chips=hits.map(({id,info})=>`<button class="fr-chip" type="button" data-fr-country="${esc(id)}">${esc(info.name)}</button>`).join('');
+  const staticCfg=staticDiseaseConfig(activeDisease);
+  const sourceNote=staticCfg?`<div class="fr-source-note">
+    <strong>Jak číst tento filtr:</strong> ${esc(staticCfg.note||'')}
+    <a href="${esc(staticCfg.sourceUrl||'#')}" target="_blank" rel="noopener noreferrer">${esc(staticCfg.sourceLabel||'Zdroj')}</a>
+    ${staticCfg.reviewedLabel?`<span>· ${esc(staticCfg.reviewedLabel)}</span>`:''}
+  </div>`:'';
 
   box.innerHTML=`<div class="fr-head">
     <div>
@@ -570,6 +612,7 @@ function renderFilterResults(){
       <div class="fr-sub">Kliknutím na destinaci otevřete detail v mapě. Další související nemoci a rizika najdete po otevření detailu destinace.</div>
     </div>
   </div>
+  ${sourceNote}
   ${hits.length?`<div class="fr-grid">${chips}</div>`:`<div class="fr-empty">Pro tento filtr se zatím nepodařilo najít žádnou destinaci. Může jít o riziko, které zatím není u destinací jednotně vedené.</div>`}`;
 
   box.querySelectorAll('[data-fr-country]').forEach(btn=>{
@@ -593,6 +636,7 @@ function repaintMap(){
 
 function diseaseSourceLabel(key){
   const src=diseaseIndexSource.get(key);
+  if(src==='static-index')return ` (zdroj: ${staticDiseaseConfig(key)?.sourceLabel||'odborný index'})`;
   if(src==='api-row')return ' (zdroj: přímé API značky)';
   if(src==='api-index')return ' (zdroj: backendový index)';
   if(src==='detail')return ' (zdroj: detail destinací)';
@@ -1614,6 +1658,14 @@ async function initMap(){
   renderAdminPanel(api.rows,unmatchedApi);
   if(unmatchedApi.length){
     console.warn('Nepřiřazené destinace z API:', unmatchedApi.map(x=>({id:x.id,name:x.name,www:x.www})));
+  }
+
+  const staticSeed=seedDiseaseIndexFromStaticConfig(api.rows);
+  if(staticSeed.unmatched.length){
+    console.warn('Nespárované položky statického indexu nemocí:',staticSeed.unmatched);
+  }
+  if(staticSeed.added){
+    console.info(`Přednačteno ${staticSeed.added} vazeb ze statického odborného indexu.`);
   }
 
   const seededDiseaseRules=seedDiseaseIndexFromApiRows(api.rows);
