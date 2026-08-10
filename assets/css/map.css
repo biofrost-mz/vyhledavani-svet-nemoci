@@ -1158,3 +1158,110 @@ a:hover{color:var(--oc-green)}
   .coverage-dialog-card{padding:23px 19px}
   .coverage-dialog h2{font-size:22px}
 }
+
+/* ==== v23.4 čitelnost legendy a mobilní překryv ==== */
+
+/* Legenda pod mapou je teď hlavní klíč k barvám, musí být čitelná. */
+.leg{color:#4f5f59;gap:14px 18px}
+.leg .li{font-size:12px}
+.leg .ld{border:1px solid rgba(255,255,255,.55);box-shadow:0 1px 3px rgba(0,0,0,.18)}
+.lh{color:#77857f}
+
+.fr-yf-totals{color:#5d6c66}
+.fr-yf-totals b{font-family:'Saira',sans-serif;color:var(--oc-blue)}
+
+@media(max-width:900px){
+  /* Detail destinace dřív zabíral ~95 % plochy mapy a překrýval legendu
+     filtru. Teď sedí u spodní hrany, legenda zůstává nahoře a mezi nimi
+     zbývá souvislý pruh mapy. */
+  .map-info{
+    top:auto!important;
+    bottom:8px!important;
+    left:8px!important;
+    right:8px!important;
+    width:auto!important;
+    max-height:42%!important;
+    overflow:auto!important;
+  }
+  /* Seznam očkování je hned pod mapou v plném detailu, v překryvu jen zabírá. */
+  .map-info .mi-vax-groups,.map-info .mi-text{display:none}
+  .map-info .mi-badges{margin-bottom:8px;padding-bottom:8px}
+  /* Detail je na mobilu hned pod mapou, extra tlačítko jen ořezávalo kartu. */
+  .map-info .mi-btn.ghost{display:none}
+  /* Akce v jedné posuvné řadě, ať se karta neořezává na spodní hraně. */
+  .map-info .mi-actions{flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px}
+  .map-info .mi-actions .mi-btn{flex:0 0 auto}
+
+  /* Podfiltry na úzkém displeji v jedné posuvné řadě místo čtyř řádků. */
+  .map-filter-legend{max-height:34%;width:min(300px,calc(100% - 16px))}
+  .map-filter-legend .mfl-items{flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px}
+  .map-filter-legend .mfl-btn{flex:0 0 auto}
+}
+
+@media(max-width:640px){
+  /* Mapa je hlavní obsah stránky, na mobilu jí patří víc místa. */
+  #mw,#av-map{height:440px!important}
+}
+@media(max-width:420px){
+  #mw,#av-map{height:400px!important}
+}
+
+
+/* ==== v23.5 vysvětlivky kategorií ==== */
+.facet-defs{margin:6px 0 0;display:grid;gap:7px}
+.facet-def dt{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  font-family:'Saira',sans-serif;
+  font-size:12px;
+  font-weight:600;
+  color:var(--oc-blue);
+}
+.facet-def dd{margin:2px 0 0 15px;font-size:11.5px;line-height:1.5;color:#5b6a64}
+.facet-def-dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto;background:#9fb0aa}
+.facet-def-risk .facet-def-dot,.facet-def-general .facet-def-dot{background:#78BE20}
+.facet-def-entry .facet-def-dot{background:#F2B705}
+.facet-def-both .facet-def-dot,.facet-def-endemic .facet-def-dot{background:#CA005D}
+.facet-caveat{margin:8px 0 0;font-size:11.5px;line-height:1.5;color:#6c7b75;font-style:italic}
+
+/* Rozbalovací vysvětlivka přímo v mapě – náhrada bubliny na dotykovém displeji. */
+.mfl-help{margin-top:2px}
+.mfl-help summary{
+  list-style:none;
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  font-size:10.5px;
+  font-weight:700;
+  color:var(--oc-blue);
+  cursor:pointer;
+  padding:3px 0;
+}
+.mfl-help summary::-webkit-details-marker{display:none}
+.mfl-help summary::after{
+  content:'+';
+  width:15px;height:15px;
+  border-radius:999px;
+  border:1px solid rgba(0,103,120,.24);
+  display:inline-flex;align-items:center;justify-content:center;
+  font-size:10px;line-height:1;
+}
+.mfl-help[open] summary::after{content:'−'}
+.mfl-help summary:focus-visible{outline:2px solid rgba(0,103,120,.45);outline-offset:2px;border-radius:6px}
+.mfl-help-body{
+  margin-top:5px;
+  padding:8px 9px;
+  max-height:200px;
+  overflow:auto;
+  border-radius:10px;
+  background:rgba(244,249,247,.9);
+  border:1px solid rgba(0,103,120,.12);
+}
+.mfl-help-body .facet-def dt{font-size:11px}
+.mfl-help-body .facet-def dd{font-size:10.5px;line-height:1.45}
+.mfl-help-body .facet-caveat{font-size:10.5px}
+
+/* Sdílení odkazu na aktuální pohled. */
+.mi-btn.share{background:#fff;color:var(--oc-blue);border:1px solid rgba(0,103,120,.25)}
+.mi-btn.share:hover{background:rgba(0,103,120,.06);color:var(--oc-blue)}

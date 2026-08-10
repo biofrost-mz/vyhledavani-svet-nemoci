@@ -4,9 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Vakcinační mapa světa · Avenier</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Saira:wght@400;500;600&family=Open+Sans:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/map.css?v=23.3">
+<link rel="stylesheet" href="assets/css/fonts.css?v=23.5">
+<link rel="stylesheet" href="assets/css/map.css?v=23.5">
 </head>
 <body class="oc-map-page">
 
@@ -106,19 +105,14 @@
   </div>
   <div id="filter-results" class="filter-results" aria-live="polite"></div>
   <div id="pnl"></div>
-  <div class="leg">
-    <div class="li"><span class="ld" id="ln"></span><span>Bez dostupného detailu</span></div>
-    <div class="li"><span class="ld" id="lh"></span><span>Dostupný detail / bez filtru</span></div>
-    <div class="li"><span class="ld" style="background:#006778"></span><span>Aktivní výběr</span></div>
-    <span class="lh">Táhnutím pohyb · kolečkem zoom</span>
-  </div>
+  <div class="leg" id="map-legend" aria-live="polite"></div>
   <div class="dbg" id="debug-panel"></div>
 <section class="admin-panel" id="admin-panel" hidden></section>
 </main>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
-<script src="assets/js/config.js?v=23.3"></script>
-<script src="assets/js/app.js?v=23.3"></script>
+<script src="assets/vendor/d3.min.js?v=23.5"></script>
+<script src="assets/vendor/topojson.min.js?v=23.5"></script>
+<script src="assets/js/config.js?v=23.5"></script>
+<script src="assets/js/app.js?v=23.5"></script>
 </body>
 </html>

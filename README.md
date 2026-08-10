@@ -128,3 +128,47 @@ Verze v22.4 (odolnost datové vrstvy):
 - text výslovně upozorňuje, že API nerozlišuje vysoké a sporadické riziko dengue,
 - Ebola zůstává záměrně mimo trvalé filtry,
 - statické assety mají verzovaný cache-buster `v=23.3`.
+
+## v23.4 – odolnost, srozumitelnost a mobil
+
+Opravy nalezené při systematickém průchodu aplikací.
+
+**Odolnost běhu**
+- d3, topojson, mapový podklad i písma jsou uložené lokálně v `assets/vendor` a `assets/fonts`; aplikace už není závislá na dostupnosti cdnjs, jsDelivr ani Google Fonts,
+- chyba při startu (chybějící knihovna, nedostupný podklad) končí čitelnou hláškou přímo v mapě místo tiché výjimky v konzoli,
+- detail destinace se zobrazí i v nefokusované záložce; dřív čekal na `requestAnimationFrame`, který v takovém případě neproběhne.
+
+**Mapa a mobil**
+- na mobilu zabíral překryv vybrané destinace ~95 % plochy mapy a schovával legendu filtru; nově sedí u spodní hrany, legenda zůstává nahoře a mezi nimi je vidět mapa,
+- výška mapy na mobilu je 440 px (400 px na velmi úzkých displejích),
+- podfiltry v mapové legendě se na úzkých displejích skládají do jedné posuvné řady,
+- body destinací mají jednotné velikosti; dřív se lišily mezi zoomem, překreslením a zrušením výběru, takže při zoomu poskakovaly.
+
+**Srozumitelnost**
+- legenda pod mapou se mění podle stavu a popisuje barvy, které jsou na mapě právě teď, včetně kategorie „Neodpovídá filtru“,
+- odstíny „bez dostupného detailu“ a „neodpovídá filtru“ jsou od sebe barevně rozlišené,
+- kategorie žluté zimnice se jmenují „Pouze místní riziko“, „Pouze vstupní podmínka“ a „Místní riziko i vstupní podmínka“; nad výsledky přibyl součet napříč kategoriemi, protože počty v jednotlivých kategoriích se nesčítají intuitivně.
+
+**Data**
+- místní riziko žluté zimnice je sjednocením doporučení Avenier API a seznamu CDC; dřív se braly jen destinace potvrzené oběma zdroji, takže se Etiopie tiše vyřazovala navzdory doporučení v API,
+- Bermudy a Britské Panenské ostrovy se navazují přímo na svůj polygon; dřív existovaly dvakrát – jako šedé území „bez dat“ a zvlášť jako bod s daty,
+- 24 území bez destinace v API má české názvy místo anglických zkratek z mapového podkladu (`Falkland Is.` → `Falklandy`),
+- názvy z API se ořezávají od přebytečných mezer (`Zanzibar ` → `Zanzibar`).
+
+- statické assety mají verzovaný cache-buster `v=23.4`.
+
+## v23.5 – vysvětlení kategorií a sdílení odkazu
+
+- kategorie podfiltrů (žlutá zimnice, horečka dengue) mají vysvětlení na jednom místě v `FACET_INFO` a zobrazují se třemi způsoby: bublina po najetí myší, rozbalovací blok „Co znamenají kategorie?“ přímo v mapové legendě (funguje i na dotykovém displeji) a plný přehled nad výsledky,
+- text u horečky dengue už nemluví o API; kategorie vysvětluje z pohledu cestovatele a odkazuje na stránku o nemoci, ne na datový endpoint,
+- adresa nese vybraný filtr, kategorii a destinaci (`?filtr=dengue&kategorie=endemic&zeme=vietnam`), takže jde poslat odkaz rovnou na konkrétní pohled; ostatní parametry (`admin`, `debug`) zůstávají zachované,
+- v kartě vybrané destinace přibylo tlačítko „Zkopírovat odkaz“; bez oprávnění do schránky odkáže uživatele na adresní řádek,
+- akce v kartě se na mobilu skládají do jedné posuvné řady, aby se karta neořezávala,
+- statické assety mají verzovaný cache-buster `v=23.5`.
+
+### Známá omezení
+- aplikaci je potřeba servírovat přes HTTP(S); při otevření přes `file://` selže načtení dat kvůli CORS,
+- filtry žloutenky A i B (230/230), meningokoka (229), spalniček (228) a chřipky (226) zvýrazní téměř celou mapu; upozorňuje na to poznámka pod výsledky,
+- aktivní filtr vybraný ze skupiny „Další nemoci a rizika“ není v zavřené skupině vidět, stav sděluje jen text pod filtry a legenda,
+- mapa není ovladatelná z klávesnice, alternativou zůstává vyhledávání,
+- popisek „Klikni na i pro vysvětlení“ a drobné texty v mapové legendě nesplňují kontrast WCAG AA.

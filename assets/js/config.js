@@ -4,9 +4,41 @@ const CN={4:"Afghanistan",8:"Albania",12:"Algeria",24:"Angola",32:"Argentina",51
 
 const CZ={4:"Afghánistán",8:"Albánie",12:"Alžírsko",24:"Angola",32:"Argentina",51:"Arménie",36:"Austrálie",40:"Rakousko",31:"Ázerbájdžán",50:"Bangladéš",112:"Bělorusko",56:"Belgie",84:"Belize",204:"Benin",64:"Bhútán",68:"Bolívie",70:"Bosna a Hercegovina",72:"Botswana",76:"Brazílie",100:"Bulharsko",854:"Burkina Faso",108:"Burundi",116:"Kambodža",120:"Kamerun",124:"Kanada",140:"Středoafrická republika",148:"Čad",152:"Chile",156:"Čína",170:"Kolumbie",178:"Kongo",180:"DR Kongo",188:"Kostarika",191:"Chorvatsko",192:"Kuba",196:"Kypr",203:"Česká republika",208:"Dánsko",262:"Džibutsko",214:"Dominikánská republika",218:"Ekvádor",818:"Egypt",222:"Salvador",226:"Rovníková Guinea",232:"Eritrea",233:"Estonsko",231:"Etiopie",246:"Finsko",250:"Francie",266:"Gabon",270:"Gambie",268:"Gruzie",276:"Německo",288:"Ghana",300:"Řecko",320:"Guatemala",324:"Guinea",624:"Guinea-Bissau",328:"Guyana",332:"Haiti",340:"Honduras",348:"Maďarsko",356:"Indie",360:"Indonésie",364:"Írán",368:"Irák",372:"Irsko",376:"Izrael",380:"Itálie",388:"Jamajka",392:"Japonsko",400:"Jordánsko",398:"Kazachstán",404:"Keňa",408:"Severní Korea",410:"Jižní Korea",414:"Kuvajt",417:"Kyrgyzstán",418:"Laos",428:"Lotyšsko",422:"Libanon",426:"Lesotho",430:"Libérie",434:"Libye",440:"Litva",807:"Severní Makedonie",450:"Madagaskar",454:"Malawi",458:"Malajsie",466:"Mali",478:"Mauritánie",484:"Mexiko",498:"Moldavsko",496:"Mongolsko",499:"Černá Hora",504:"Maroko",508:"Mozambik",104:"Myanmar",516:"Namibie",524:"Nepál",528:"Nizozemsko",554:"Nový Zéland",558:"Nikaragua",562:"Niger",566:"Nigérie",578:"Norsko",512:"Omán",586:"Pákistán",591:"Panama",598:"Papua Nová Guinea",600:"Paraguay",604:"Peru",608:"Filipíny",616:"Polsko",620:"Portugalsko",642:"Rumunsko",643:"Rusko",682:"Saúdská Arábie",686:"Senegal",688:"Srbsko",694:"Sierra Leone",703:"Slovensko",705:"Slovinsko",706:"Somálsko",710:"Jihoafrická republika",728:"Jižní Súdán",724:"Španělsko",144:"Srí Lanka",729:"Súdán",748:"Eswatini",752:"Švédsko",756:"Švýcarsko",760:"Sýrie",762:"Tádžikistán",834:"Tanzanie",764:"Thajsko",626:"Východní Timor",768:"Togo",780:"Trinidad a Tobago",788:"Tunisko",792:"Turecko",795:"Turkmenistán",800:"Uganda",804:"Ukrajina",784:"Spojené arabské emiráty",826:"Velká Británie",840:"USA",858:"Uruguay",860:"Uzbekistán",862:"Venezuela",704:"Vietnam",887:"Jemen",894:"Zambie",716:"Zimbabwe",20:"Andorra",28:"Antigua a Barbuda",44:"Bahamy",48:"Bahrajn",52:"Barbados",96:"Brunej",132:"Kapverdy",174:"Komory",242:"Fidži",296:"Kiribati",308:"Grenada",336:"Vatikán",352:"Island",384:"Pobřeží slonoviny",438:"Lichtenštejnsko",442:"Lucembursko",462:"Maledivy",470:"Malta",480:"Mauricius",492:"Monako",520:"Nauru",548:"Vanuatu",583:"Mikronésie",584:"Marshallovy ostrovy",585:"Palau",634:"Katar",646:"Rwanda",674:"San Marino",678:"Svatý Tomáš a Princův ostrov",690:"Seychely",702:"Singapur",90:"Šalomounovy ostrovy",740:"Surinam",776:"Tonga",798:"Tuvalu",882:"Samoa",304:"Greenland",540:"New Caledonia",630:"Puerto Rico",158:"Taiwan",383:"Kosovo",732:"Západní Sahara",136:"Kajmanské ostrovy",184:"Cookovy ostrovy",212:"Dominika",254:"Francouzská Guyana",258:"Francouzská Polynésie",312:"Guadeloupe",344:"Hongkong",474:"Martinik",535:"Bonaire, Svatý Eustach a Saba",638:"Réunion",652:"Saint-Barthélemy",659:"Svatý Kryštof a Nevis",662:"Svatá Lucie",663:"Saint-Martin",670:"Svatý Vincenc a Grenadiny",796:"Turks a Caicos",850:"Americké Panenské ostrovy"};
 
+/* Území, která mapový podklad pojmenovává anglicky (a často zkratkou) a která
+   nemají vlastní destinaci v Avenier API. Klíčem je slug názvu z podkladu, ne
+   ISO kód – některé z těchto prvků žádné ISO číslo nemají. */
+const MAP_NAME_CZ={
+  'n-mariana-is':'Severní Mariany',
+  'guam':'Guam',
+  'american-samoa':'Americká Samoa',
+  's-geo-and-the-is':'Jižní Georgie a Jižní Sandwichovy ostrovy',
+  'br-indian-ocean-ter':'Britské indickooceánské území',
+  'indian-ocean-ter':'Australská indickooceánská území',
+  'saint-helena':'Svatá Helena',
+  'pitcairn-is':'Pitcairnovy ostrovy',
+  'falkland-is':'Falklandy',
+  'bermuda':'Bermudy',
+  'british-virgin-is':'Britské Panenské ostrovy',
+  'jersey':'Jersey',
+  'guernsey':'Guernsey',
+  'isle-of-man':'Ostrov Man',
+  'niue':'Niue',
+  'palestine':'Palestina',
+  'st-pierre-and-miquelon':'Saint-Pierre a Miquelon',
+  'wallis-and-futuna-is':'Wallis a Futuna',
+  'fr-s-antarctic-lands':'Francouzská jižní a antarktická území',
+  'aland':'Ålandy',
+  'faeroe-is':'Faerské ostrovy',
+  'heard-i-and-mcdonald-is':'Heardův ostrov a McDonaldovy ostrovy',
+  'norfolk-island':'Norfolk',
+  'antarctica':'Antarktida'
+};
+
 const OV={"Bosnia and Herzegovina":"bosnia-and-herzegovina","Burkina Faso":"burkina-faso","Central African Republic":"central-african-republic","Costa Rica":"costa-rica","Czech Republic":"czech-republic","Dominican Republic":"dominican-republic","DR Congo":"democratic-republic-of-the-congo","El Salvador":"el-salvador","Equatorial Guinea":"equatorial-guinea","Eswatini":"eswatini","Guinea-Bissau":"guinea-bissau","New Zealand":"new-zealand","North Korea":"north-korea","North Macedonia":"north-macedonia","Papua New Guinea":"papua-new-guinea","Republic of the Congo":"republic-of-the-congo","Saudi Arabia":"saudi-arabia","Sierra Leone":"sierra-leone","South Africa":"south-africa","South Korea":"south-korea","South Sudan":"south-sudan","Sri Lanka":"sri-lanka","Timor-Leste":"timor-leste","Trinidad and Tobago":"trinidad-and-tobago","United Arab Emirates":"united-arab-emirates","United Kingdom":"united-kingdom","United States":"united-states","Antigua and Barbuda":"antigua-and-barbuda","Cape Verde":"cape-verde","Cote d'Ivoire":"cote-divoire","Sao Tome and Principe":"sao-tome-and-principe","Solomon Islands":"solomon-islands","Vatican City":"vatican-city"};
 
-const MC={ocean:'#0d2040',none:'#3a5272',has:'#78be20',hov:'#5fa018',sel:'#006778',selB:'rgba(170,235,255,0.85)',dim:'#53677c',brd:'rgba(255,255,255,0.24)',brdH:'rgba(255,255,255,0.62)',grat:'rgba(255,255,255,0.055)'};
+/* `none` (bez detailu) a `dim` (neodpovídá filtru) byly téměř totožné odstíny.
+   Rozestup je záměrně větší, aby legenda pod mapou dávala smysl. */
+const MC={ocean:'#0d2040',none:'#2f4569',has:'#78be20',hov:'#5fa018',sel:'#006778',selB:'rgba(170,235,255,0.85)',dim:'#63788d',brd:'rgba(255,255,255,0.24)',brdH:'rgba(255,255,255,0.62)',grat:'rgba(255,255,255,0.055)'};
 
 const API_ALIAS={
   20:['andorra'],
@@ -193,10 +225,10 @@ const DEST_COORDS={
 const API_DESTINATION_MAP={
   'americke-panenske-ostrovy':{id:850,mapId:850,coords:[-64.90,18.34]},
   'bali':{id:'api:bali',mapId:360,coords:[115.19,-8.41]},
-  'bermudy':{id:'api:bermudy',mapId:60,coords:[-64.75,32.31]},
+  'bermudy':{id:60,mapId:60,coords:[-64.75,32.31]},
   'bonaire':{id:'api:bonaire',mapId:535,coords:[-68.27,12.18]},
   'borneo':{id:'api:borneo',mapId:360,coords:[114.00,0.80]},
-  'britske-panenske-ostrovy':{id:'api:britske-panenske-ostrovy',mapId:92,coords:[-64.64,18.42]},
+  'britske-panenske-ostrovy':{id:92,mapId:92,coords:[-64.64,18.42]},
   'cookovy-ostrovy':{id:184,mapId:184,coords:[-159.78,-21.24]},
   'dominika':{id:212,mapId:212,coords:[-61.37,15.41]},
   'francouzska-guyana':{id:'api:francouzska-guyana',mapId:254,coords:[-53.13,3.93]},

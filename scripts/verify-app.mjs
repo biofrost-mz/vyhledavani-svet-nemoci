@@ -1,4 +1,4 @@
-import {readFile} from 'node:fs/promises';
+import {readFile,stat} from 'node:fs/promises';
 import {dirname,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
@@ -45,4 +45,58 @@ assert(config.includes("const DISEASE_INDEX_API_URL='assets/data/disease-index.j
 const app=await readFile(resolve(root,'assets/js/app.js'),'utf8');
 assert(app.includes('data-yf-facet')&&app.includes('setYellowFeverFacet'),'Chybí ovládání podfiltrů žluté zimnice.');
 
-console.log(`Kontrola v pořádku: ${index.destinationCount} destinací, ${requiredDiseases.length} nemocí, verze ${versions[0]}.`);
+/* Aplikace musí běžet i bez přístupu k veřejným CDN. */
+const vendored=[
+  ['assets/vendor/d3.min.js',100000],
+  ['assets/vendor/topojson.min.js',5000],
+  ['assets/vendor/countries-50m.json',300000],
+  ['assets/css/fonts.css',500]
+];
+for(const [file,minBytes] of vendored){
+  const info=await stat(resolve(root,file)).catch(()=>null);
+  assert(info?.isFile(),`Chybí lokální kopie ${file}.`);
+  assert(info.size>=minBytes,`Lokální kopie ${file} je podezřele malá (${info.size} B).`);
+}
+assert(!/cdnjs\.cloudflare\.com|cdn\.jsdelivr\.net|fonts\.googleapis\.com/.test(html),'index.html stále načítá knihovny nebo fonty z veřejné CDN.');
+
+/* Lokální fonty musí být opravdu použitelné, ne jen přítomné. */
+const fontCss=await readFile(resolve(root,'assets/css/fonts.css'),'utf8');
+const faceCount=(fontCss.match(/@font-face/g)||[]).length;
+assert(faceCount>=8,`fonts.css obsahuje jen ${faceCount} deklarací @font-face.`);
+assert(!fontCss.includes('@font-face@font-face'),'fonts.css je poškozený (zdvojená deklarace @font-face).');
+assert(!/https:\/\/fonts\.gstatic\.com/.test(fontCss),'fonts.css stále odkazuje na fonts.gstatic.com.');
+const fontFiles=[...new Set([...fontCss.matchAll(/url\(\.\.\/fonts\/([^)]+)\)/g)].map(m=>m[1]))];
+assert(fontFiles.length>=4,`fonts.css odkazuje jen na ${fontFiles.length} souborů písma.`);
+for(const file of fontFiles){
+  const info=await stat(resolve(root,'assets/fonts',file)).catch(()=>null);
+  assert(info?.isFile()&&info.size>1000,`Chybí nebo je prázdný soubor písma ${file}.`);
+}
+assert(!/cdn\.jsdelivr\.net/.test(app),'app.js stále načítá mapový podklad z veřejné CDN.');
+assert(app.includes("MAP_TOPOLOGY_URL='assets/vendor/countries-50m.json'"),'Mapový podklad se nenačítá z lokální kopie.');
+
+/* Regrese, které se už jednou projevily v ostrém rozhraní. */
+assert(config.includes('const MAP_NAME_CZ='),'Chybí české názvy území bez destinace v API.');
+assert(app.includes('MAP_NAME_CZ[rawFeatureName]'),'České názvy území se nepoužívají při stavbě mapy.');
+assert(app.includes('function combineYellowFeverRisk'),'Chybí sjednocení zdrojů místního rizika žluté zimnice.');
+assert(!app.includes('requestAnimationFrame(()=>wrap.classList.add'),'Detail destinace se opět zobrazuje až přes requestAnimationFrame.');
+assert(app.includes('function renderMapLegend'),'Chybí dynamická legenda pod mapou.');
+assert(/const MARKER_R=\{base:3,hover:4,selected:5\}/.test(app),'Velikosti bodů v mapě nemají jediný zdroj pravdy.');
+assert(!/'bermudy':\{id:'api:/.test(config)&&!/'britske-panenske-ostrovy':\{id:'api:/.test(config),'Bermudy nebo Britské Panenské ostrovy se opět tvoří jako destinace mimo vlastní polygon.');
+
+/* Vysvětlivky kategorií musí existovat pro obě nemoci s podfiltry a nesmí
+   mluvit o API – uživateli nabízíme zdroj o nemoci, ne technický endpoint. */
+assert(app.includes('const FACET_INFO='),'Chybí vysvětlivky kategorií podfiltrů.');
+['yellow-fever','dengue'].forEach(key=>{
+  assert(new RegExp(`FACET_INFO(?:\\[|=)[\\s\\S]*['"]?${key}['"]?\\s*:`).test(app),`FACET_INFO nemá kategorie pro ${key}.`);
+});
+assert(app.includes('function facetTooltip')&&app.includes('function facetGlossaryDetails'),'Chybí bublina nebo rozbalovací vysvětlivka kategorií.');
+/* Endpoint v konstantě APIS je v pořádku; hlídáme jen odkazy a texty pro uživatele. */
+assert(!app.includes('API Očkovacího centra'),'Rozhraní znovu popisuje zdroj jako API místo stránky o nemoci.');
+assert(!/href="[^"]*api\/country/.test(app),'Rozhraní znovu odkazuje uživatele přímo na API.');
+
+/* Sdílení stavu přes URL. */
+assert(/URL_PARAM=\{disease:'filtr',facet:'kategorie',destination:'zeme'\}/.test(app),'Chybí parametry pro sdílení stavu v URL.');
+assert(app.includes('function applyStateFromUrl')&&app.includes('function updateUrlState'),'Chybí obnovení nebo zápis stavu do URL.');
+assert(app.includes("data-mi-action=\"share\"")&&app.includes('function copyShareLink'),'Chybí tlačítko pro zkopírování odkazu.');
+
+console.log(`Kontrola v pořádku: ${index.destinationCount} destinací, ${requiredDiseases.length} nemocí, verze ${versions[0]}, ${vendored.length} lokálních závislostí.`);
