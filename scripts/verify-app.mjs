@@ -111,6 +111,18 @@ assert(app.includes('const EXTERNAL_DETAIL_DISEASES=')&&app.includes('function e
 assert(app.includes('Doplňující odborné zdroje')&&app.includes('Zdroj: ${esc(item.sourceLabel)}'),'Externí nemoci nemají srozumitelné označení a zdroj.');
 assert(app.includes("const url=info.www||''")&&!/ockovacicentrum\.cz\/cz\/\$\{[^}]*slug/.test(app),'Odkaz na destinaci se znovu skládá i bez existující cílové stránky.');
 
+/* Informační UX: neslučitelná destinace nesmí přebít filtr ani mapu, aktivní
+   rozšířený filtr musí zůstat viditelný a názvy zobrazujeme primárně česky. */
+assert(app.includes('filterDestinationMismatch')&&app.includes('destinationMatchesActiveFilter'),'Chybí ochrana proti neslučitelné kombinaci filtru a destinace.');
+assert(app.includes('mapa zůstává v přehledu filtru')&&app.includes('Zrušit filtr a otevřít destinaci'),'Neslučitelný sdílený odkaz nemá srozumitelné vysvětlení a řešení.');
+assert(app.includes('function syncExpandedDiseaseGroup')&&app.includes('group.open=inside'),'Aktivní nemoc ze skupiny Další nemoci zůstává skrytá.');
+assert(app.includes('const name=cleanName(cz||entry?.name||en)')&&app.includes('entry?.name,en,cz'),'Český název není oddělený od anglického vyhledávacího synonyma.');
+assert(app.includes('function moreAboutDestinationLabel')&&app.includes('Více informací:'),'Odkazy na destinaci nemají jednotné konkrétní označení.');
+assert(html.includes('Mapa očkování a zdravotních rizik')&&html.includes('Očkování, vstupní podmínky a zdravotní rizika podle destinace'),'Název aplikace neodpovídá širšímu informačnímu obsahu.');
+assert(html.includes('quick-label">Oblíbené destinace')&&html.includes('class="quick-list"'),'Mobilní rychlé destinace nemají srozumitelný kontext.');
+assert(app.includes('<details class="external-card">')&&app.includes('EXTERNAL_DETAIL_SUMMARIES'),'Externí nemoci nejsou ve zkrácených rozbalovacích kartách.');
+assert(app.includes("mark:'R+V'")&&app.includes("mark:'✓'")&&app.includes('${esc(it.mark||\'\')}'),'Barevné kategorie nemají doplňkové textové značky.');
+
 /* Sdílení stavu přes URL. */
 assert(/URL_PARAM=\{disease:'filtr',facet:'kategorie',destination:'zeme'\}/.test(app),'Chybí parametry pro sdílení stavu v URL.');
 assert(app.includes('function applyStateFromUrl')&&app.includes('function updateUrlState'),'Chybí obnovení nebo zápis stavu do URL.');

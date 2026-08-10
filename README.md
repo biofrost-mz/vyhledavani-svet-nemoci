@@ -1,4 +1,4 @@
-# Vakcinační mapa světa – Avenier
+# Mapa očkování a zdravotních rizik – Avenier
 
 Verze v19:
 - box „Vybraná destinace“ má decentní zelené podbarvení ve stylu článků,
@@ -193,6 +193,17 @@ Opravy nalezené při systematickém průchodu aplikací.
 - stav zdroje a datum vytvoření jsou samostatně bílým písmem v pravém dolním rohu bez podkladového panelu,
 - dialog nastavení exportu je vždy vycentrovaný doprostřed obrazovky,
 - statické assety mají verzovaný cache-buster `v=23.8`.
+
+## v24.1 – informační hierarchie a mobilní ovládání
+
+- neslučitelný sdílený odkaz filtru a destinace už mapu nepřiblíží na nesouvisející místo; vysvětlí situaci a nabídne zrušení filtru,
+- rozšířená skupina nemocí se automaticky otevře, pokud obsahuje právě aktivní filtr,
+- název aplikace nově zahrnuje očkování i zdravotní rizika a názvy destinací se zobrazují primárně česky,
+- mobilní karta destinace je kratší, bez vlastního posuvníku a obsahuje jen dvě hlavní akce,
+- nemoci z CDC a WHO jsou v kompaktních rozbalovacích kartách; jejich podrobnosti, datum a odkazy zůstávají dostupné,
+- zdroje, legenda a vysvětlovací tlačítka mají větší text i ovládací plochu a barevné kategorie doplňují textové značky,
+- mobilní zkratky jsou označené jako „Oblíbené destinace“ a odkazy na destinaci mají jednotný konkrétní název,
+- statické assety mají verzovaný cache-buster `v=24.1`.
 
 ## v24.0 – srozumitelnější detail, správná čeština a zdroje
 

@@ -3,16 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Vakcinační mapa světa · Avenier</title>
-<link rel="stylesheet" href="assets/css/fonts.css?v=24.0">
-<link rel="stylesheet" href="assets/css/map.css?v=24.0">
+<title>Mapa očkování a zdravotních rizik · Avenier</title>
+<link rel="stylesheet" href="assets/css/fonts.css?v=24.1">
+<link rel="stylesheet" href="assets/css/map.css?v=24.1">
 </head>
 <body class="oc-map-page">
 
 <header class="hd">
   <div class="hd-logo">AVENIER</div>
-  <div><h1 class="hd-title">Vakcinační mapa světa</h1>
-    <p class="hd-sub">Očkovací doporučení podle destinace · <a href="https://www.ockovacicentrum.cz" target="_blank" rel="noopener noreferrer">ockovacicentrum.cz</a></p>
+  <div><h1 class="hd-title">Mapa očkování a zdravotních rizik</h1>
+    <p class="hd-sub">Očkování, vstupní podmínky a zdravotní rizika podle destinace · <a href="https://www.ockovacicentrum.cz" target="_blank" rel="noopener noreferrer">ockovacicentrum.cz</a></p>
   </div>
   <span class="test-badge">TESTOVACÍ VERZE</span><button id="av-status" type="button" aria-haspopup="dialog" aria-controls="coverage-dialog" disabled>Načítám…</button>
 </header>
@@ -109,13 +109,16 @@
   </div>
 </div>
 
-<div class="quick" aria-label="Rychlé destinace">
-  <button class="qchip" data-q="Egypt" type="button">Egypt</button>
-  <button class="qchip" data-q="Turecko" type="button">Turecko</button>
-  <button class="qchip" data-q="Thajsko" type="button">Thajsko</button>
-  <button class="qchip" data-q="Vietnam" type="button">Vietnam</button>
-  <button class="qchip" data-q="Keňa" type="button">Keňa</button>
-  <button class="qchip" data-q="Mexiko" type="button">Mexiko</button>
+<div class="quick" aria-label="Oblíbené destinace">
+  <span class="quick-label">Oblíbené destinace</span>
+  <div class="quick-list">
+    <button class="qchip" data-q="Egypt" type="button">Egypt</button>
+    <button class="qchip" data-q="Turecko" type="button">Turecko</button>
+    <button class="qchip" data-q="Thajsko" type="button">Thajsko</button>
+    <button class="qchip" data-q="Vietnam" type="button">Vietnam</button>
+    <button class="qchip" data-q="Keňa" type="button">Keňa</button>
+    <button class="qchip" data-q="Mexiko" type="button">Mexiko</button>
+  </div>
 </div>
 
 <main class="main">
@@ -139,9 +142,9 @@
 <section class="admin-panel" id="admin-panel" hidden></section>
 </main>
 
-<script src="assets/vendor/d3.min.js?v=24.0"></script>
-<script src="assets/vendor/topojson.min.js?v=24.0"></script>
-<script src="assets/js/config.js?v=24.0"></script>
-<script src="assets/js/app.js?v=24.0"></script>
+<script src="assets/vendor/d3.min.js?v=24.1"></script>
+<script src="assets/vendor/topojson.min.js?v=24.1"></script>
+<script src="assets/js/config.js?v=24.1"></script>
+<script src="assets/js/app.js?v=24.1"></script>
 </body>
 </html>

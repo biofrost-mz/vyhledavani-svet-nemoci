@@ -1348,3 +1348,71 @@ a:hover{color:var(--oc-green)}
   .map-export-dialog-actions{position:sticky;bottom:-18px;margin:0 -17px -18px;padding:12px 17px 18px;background:linear-gradient(180deg,rgba(255,255,255,.82),#fff 24%)}
   .map-export-create{flex:1}
 }
+
+/* ==== v24.1 informační hierarchie, přístupnější legenda a mobilní detail ==== */
+.quick{display:block}
+.quick-label{display:none;font-family:'Saira',sans-serif;font-size:11px;font-weight:700;color:#60716b;margin:0 0 7px 2px}
+.quick-list{display:flex;gap:7px;flex-wrap:wrap}
+
+.more-diseases.has-active>summary{color:var(--oc-blue)}
+.more-diseases.has-active>summary::before{content:'Aktivní filtr';padding:3px 7px;border-radius:999px;background:rgba(120,190,32,.14);color:#3d6b0a;font-size:9px;letter-spacing:.04em;text-transform:uppercase}
+
+.fr-mismatch{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0 0 14px;padding:13px 14px;border-radius:14px;background:#fff5dd;border:1px solid rgba(181,130,0,.28);border-left:4px solid #b58200;color:#5e4b1c}
+.fr-mismatch div{display:grid;gap:3px}
+.fr-mismatch strong{font-family:'Saira',sans-serif;font-size:13px;color:#6d4d00}
+.fr-mismatch span{font-size:12px;line-height:1.5}
+.fr-mismatch button{flex:0 0 auto;border:0;border-radius:999px;padding:9px 13px;background:#806000;color:#fff;font:700 11px 'Saira',sans-serif;cursor:pointer}
+.fr-mismatch button:hover{background:#684d00}
+.destination-filter-notice{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:8px 0 12px;padding:9px 11px;border-radius:11px;background:#fff5dd;border-left:4px solid #b58200;color:#6d4d00;font-size:11px;line-height:1.45}
+.destination-filter-notice button{flex:0 0 auto;border:1px solid rgba(128,96,0,.28);border-radius:999px;padding:6px 9px;background:#fff;color:#6d4d00;font:700 10px 'Saira',sans-serif;cursor:pointer}
+
+.external-card{padding:0;overflow:hidden}
+.external-card summary{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:10px;padding:13px 14px;cursor:pointer;list-style:none}
+.external-card summary::-webkit-details-marker{display:none}
+.external-copy{display:grid;gap:2px;min-width:0}
+.external-name{font-family:'Saira',sans-serif;font-size:14px;font-weight:700;color:var(--oc-blue)}
+.external-summary{font-size:11px;line-height:1.4;color:#66756f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.external-source-chip{padding:3px 7px;border-radius:999px;background:rgba(0,103,120,.08);border:1px solid rgba(0,103,120,.15);font:700 9px 'Saira',sans-serif;color:var(--oc-blue)}
+.external-toggle{width:22px;height:22px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:#f3f7f5;border:1px solid rgba(0,103,120,.15);font:700 14px 'Saira',sans-serif;color:var(--oc-blue)}
+.external-card[open] .external-toggle{font-size:0}
+.external-card[open] .external-toggle::after{content:'−';font-size:14px}
+.external-body{padding:0 14px 14px;border-top:1px solid rgba(0,103,120,.09)}
+.external-body>p{margin:11px 0 10px;font-size:12px;line-height:1.6}
+.external-meta{font-size:11px;gap:5px}
+
+.help-btn{width:24px!important;height:24px!important;font-size:12px!important;flex:0 0 24px}
+.mfl-note,.mfl-source{font-size:12px;line-height:1.5}
+.mfl-reviewed{font-size:11px;line-height:1.4}
+.mfl-items{font-size:11.5px}
+.mfl-items i{width:auto;min-width:20px;height:20px;padding:0 4px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;color:#fff;font:700 8px 'Saira',sans-serif;box-sizing:border-box}
+.leg .li{font-size:13px}
+.leg .ld{width:auto;min-width:22px;height:20px;padding:0 4px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;color:#fff;font:700 8px 'Saira',sans-serif;box-sizing:border-box}
+.lh{font-size:12px}
+
+@media(max-width:900px){
+  .map-info{max-height:none!important;overflow:visible!important}
+  .map-info .mi-actions{display:grid;grid-template-columns:1fr 1fr;overflow:visible;padding-bottom:0}
+  .map-info .mi-actions .mi-btn{min-width:0;justify-content:center;text-align:center;white-space:normal}
+  .map-info .mi-btn.share{display:none}
+  .map-info .mi-btn.ghost{display:inline-flex;grid-column:1/-1;background:var(--oc-blue);color:#fff;border-color:var(--oc-blue)}
+}
+
+@media(max-width:640px){
+  .quick{overflow:visible!important;padding-bottom:0!important}
+  .quick-label{display:block}
+  .quick-list{flex-wrap:nowrap;overflow-x:auto;padding-bottom:5px;scrollbar-width:none}
+  .quick-list::-webkit-scrollbar{display:none}
+  .fr-mismatch{display:grid}
+  .fr-mismatch button{width:100%}
+  .external-grid{grid-template-columns:1fr}
+  .external-diseases{padding:14px}
+  .map-info{padding:12px!important}
+  .map-info .mi-actions{gap:6px}
+  .map-info .mi-actions .mi-btn{padding:8px 7px;font-size:10px}
+  .map-info .mi-btn.center{display:none}
+  .map-info .mi-btn.ghost{grid-column:auto}
+  .map-info .mi-badges{border-bottom:0;margin-bottom:5px;padding-bottom:2px}
+  .zbtn{width:42px!important;height:42px!important}
+  .mfl-help summary{min-height:28px;font-size:11.5px}
+  .mfl-help summary::after{width:20px;height:20px;font-size:12px}
+}

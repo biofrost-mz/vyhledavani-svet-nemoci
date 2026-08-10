@@ -7,6 +7,9 @@ const CZ={4:"Afghánistán",8:"Albánie",12:"Alžírsko",24:"Angola",32:"Argenti
 /* Území, která mapový podklad pojmenovává anglicky (a často zkratkou) a která
    nemají vlastní destinaci v Avenier API. Klíčem je slug názvu z podkladu, ne
    ISO kód – některé z těchto prvků žádné ISO číslo nemají. */
+/* Upřednostnit české názvy v rozhraní; anglické podoby zůstávají v hledání. */
+Object.assign(CZ,{304:'Grónsko',540:'Nová Kaledonie',630:'Portoriko',158:'Tchaj-wan'});
+
 const MAP_NAME_CZ={
   'n-mariana-is':'Severní Mariany',
   'guam':'Guam',
