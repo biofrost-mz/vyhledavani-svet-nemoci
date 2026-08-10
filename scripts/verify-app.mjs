@@ -128,6 +128,8 @@ assert(app.includes('function scrollToDetailSection')&&app.includes('vax-section
 assert(app.includes('aria-label="Zavřít detail destinace">×</button>')&&!app.includes('Zavřít ✕'),'Detail destinace stále používá textové tlačítko zavření.');
 assert(mapCss.includes('#mw,#av-map{height:500px!important}')&&mapCss.includes('.map-info .mi-btn.center,.map-info .mi-btn.share,.map-info .mi-btn.ghost'),'Mobilní mapa nebo úplná sada akcí v kartě nemá očekávané rozvržení.');
 assert(mapCss.includes('border-top-color:var(--oc-blue)!important')&&mapCss.includes('.card>.bclose'),'Karta destinace nemá modrozelené odlišení nebo rohové zavírací tlačítko.');
+assert(app.includes('function mapFocusLayout')&&app.includes("matchMedia?.('(max-width: 640px)').matches")&&app.includes('y:availableHeight/2'),'Mobilní zoom neposouvá destinaci do volné horní poloviny mapy.');
+assert(app.includes('dy/focus.availableHeight')&&app.includes('translate(focus.x,focus.y)'),'Přizpůsobení polygonu nebo bodové destinace ignoruje mobilní volnou plochu.');
 
 /* Sdílení stavu přes URL. */
 assert(/URL_PARAM=\{disease:'filtr',facet:'kategorie',destination:'zeme'\}/.test(app),'Chybí parametry pro sdílení stavu v URL.');

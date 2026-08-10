@@ -213,6 +213,13 @@ Opravy nalezené při systematickém průchodu aplikací.
 - plný detail destinace má pouze křížek bez textu, umístěný v pravém horním rohu,
 - statické assety mají verzovaný cache-buster `v=24.2`.
 
+## v24.3 – viditelná destinace nad mobilní kartou
+
+- při výběru destinace na telefonu se mapa přiblíží do volné horní poloviny mapového boxu,
+- výpočet přiblížení polygonu respektuje menší dostupnou výšku, takže vybraná země nezůstane schovaná pod kartou,
+- desktopové centrování mapy zůstává beze změny,
+- statické assety mají verzovaný cache-buster `v=24.3`.
+
 ## v24.0 – srozumitelnější detail, správná čeština a zdroje
 
 - počítadla používají správné české tvary pro 1, 2–4 a 0 či 5+; nulové hodnoty se v detailu už neskrývají,

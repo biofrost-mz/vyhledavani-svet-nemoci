@@ -2291,12 +2291,22 @@ function closePanel(){
 }
 
 /* ── Zoom na feature ── */
+function mapFocusLayout(){
+  const mobile=typeof window!=='undefined'&&window.matchMedia?.('(max-width: 640px)').matches;
+  if(!mobile)return{x:W/2,y:H/2,availableHeight:H};
+  /* Mobilní karta zabírá spodní část mapy. Vybranou destinaci proto skládáme
+     do středu volné horní plochy, ne pod překryv detailu. */
+  const availableHeight=H*.50;
+  return{x:W/2,y:availableHeight/2,availableHeight};
+}
+
 function zoomToFeat(d,{animate=true}={}){
   try{
     const [[x0,y0],[x1,y1]]=pg.bounds(d);
     const dx=x1-x0,dy=y1-y0,cx=(x0+x1)/2,cy=(y0+y1)/2;
-    const sc=Math.max(1.2,Math.min(8,.82/Math.max(dx/W,dy/H)));
-    const t=d3.zoomIdentity.translate(W/2,H/2).scale(sc).translate(-cx,-cy);
+    const focus=mapFocusLayout();
+    const sc=Math.max(1.2,Math.min(8,.82/Math.max(dx/W,dy/focus.availableHeight)));
+    const t=d3.zoomIdentity.translate(focus.x,focus.y).scale(sc).translate(-cx,-cy);
     if(animate){
       sv.transition().duration(650).call(zb.transform,t);
     }else{
@@ -2308,7 +2318,8 @@ function zoomToFeat(d,{animate=true}={}){
 function zoomToCoords(coords,scale=4.2,{animate=true}={}){
   if(!coords||!prj)return;
   const [x,y]=prj(coords);
-  const t=d3.zoomIdentity.translate(W/2,H/2).scale(scale).translate(-x,-y);
+  const focus=mapFocusLayout();
+  const t=d3.zoomIdentity.translate(focus.x,focus.y).scale(scale).translate(-x,-y);
   if(animate){
     sv.transition().duration(650).call(zb.transform,t);
   }else{
