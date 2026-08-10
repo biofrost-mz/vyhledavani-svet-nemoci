@@ -6,7 +6,7 @@
 <title>Vakcinační mapa světa · Avenier</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Saira:wght@400;500;600&family=Open+Sans:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/map.css?v=23.0">
+<link rel="stylesheet" href="assets/css/map.css?v=23.3">
 </head>
 <body class="oc-map-page">
 
@@ -15,18 +15,24 @@
   <div><h1 class="hd-title">Vakcinační mapa světa</h1>
     <p class="hd-sub">Očkovací doporučení podle destinace · <a href="https://www.ockovacicentrum.cz" target="_blank" rel="noopener noreferrer">ockovacicentrum.cz</a></p>
   </div>
-  <span class="test-badge">TESTOVACÍ VERZE</span><span id="av-status">Načítám…</span>
+  <span class="test-badge">TESTOVACÍ VERZE</span><button id="av-status" type="button" aria-haspopup="dialog" aria-controls="coverage-dialog" disabled>Načítám…</button>
 </header>
+
+<dialog id="coverage-dialog" class="coverage-dialog" aria-labelledby="coverage-title">
+  <div class="coverage-dialog-card">
+    <button class="coverage-close" type="button" aria-label="Zavřít přehled">×</button>
+    <div class="coverage-eyebrow">Pokrytí cestovních doporučení</div>
+    <h2 id="coverage-title">Destinace v mapě</h2>
+    <div id="coverage-content"></div>
+    <button class="coverage-confirm" type="button">Rozumím</button>
+  </div>
+</dialog>
 
 <section class="info-hub info-hub-full" aria-label="Důležité upozornění">
   <div class="legal-alert">
     <strong>Důležité upozornění:</strong> Doporučení se může lišit podle délky pobytu, konkrétní oblasti, stylu cestování a zdravotního stavu cestovatele. Tato aplikace nenahrazuje vyšetření ani doporučení lékaře a slouží pouze jako orientační přehled.
   </div>
 </section>
-
-<div class="destination-summary" id="destination-summary" aria-live="polite">
-  <strong>Přehled destinací se načítá…</strong>
-</div>
 
 <div class="sw">
   <div class="si">
@@ -51,6 +57,8 @@
     <span class="dctrl"><button class="fbtn" data-disease="yellow-fever" type="button">Žlutá zimnice</button><a class="dlink" href="https://www.ockovacicentrum.cz/cz/zluta-zimnice" target="_blank" rel="noopener noreferrer" aria-label="Otevřít detail nemoci: Žlutá zimnice">↗</a></span>
     <span class="dctrl"><button class="fbtn" data-disease="typhoid" type="button">Břišní tyfus</button><a class="dlink" href="https://www.ockovacicentrum.cz/cz/brisni-tyfus" target="_blank" rel="noopener noreferrer" aria-label="Otevřít detail nemoci: Břišní tyfus">↗</a></span>
     <span class="dctrl"><button class="fbtn" data-disease="dengue" type="button">Horečka Dengue</button><a class="dlink" href="https://www.ockovacicentrum.cz/cz/horecka-dengue" target="_blank" rel="noopener noreferrer" aria-label="Otevřít detail nemoci: Horečka Dengue">↗</a></span>
+    <span class="dctrl"><button class="fbtn" data-disease="chikungunya" type="button">Chikungunya</button><a class="dlink" href="https://www.ockovacicentrum.cz/cz/chikungunya" target="_blank" rel="noopener noreferrer" aria-label="Otevřít detail nemoci: Chikungunya">↗</a></span>
+    <span class="dctrl"><button class="fbtn" data-disease="zika" type="button">Zika</button><a class="dlink" href="https://www.ockovacicentrum.cz/cz/zika" target="_blank" rel="noopener noreferrer" aria-label="Otevřít detail nemoci: Zika">↗</a></span>
     <span class="dctrl"><button class="fbtn" data-disease="rabies" type="button">Vzteklina</button><a class="dlink" href="https://www.ockovacicentrum.cz/cz/vzteklina" target="_blank" rel="noopener noreferrer" aria-label="Otevřít detail nemoci: Vzteklina">↗</a></span>
     <span class="dctrl"><button class="fbtn" data-disease="japanese-encephalitis" type="button">Japonská encefalitida</button><a class="dlink" href="https://www.ockovacicentrum.cz/cz/japonska-encefalitida" target="_blank" rel="noopener noreferrer" aria-label="Otevřít detail nemoci: Japonská encefalitida">↗</a></span>
     <details class="more-diseases">
@@ -65,6 +73,8 @@
         <span class="dctrl"><button class="fbtn" data-disease="tick-borne-encephalitis" type="button">Klíšťová encefalitida</button><a class="dlink" href="https://www.ockovacicentrum.cz/cz/klistova-encefalitida" target="_blank" rel="noopener noreferrer" aria-label="Otevřít detail nemoci: Klíšťová encefalitida">↗</a></span>
         <span class="dctrl"><button class="fbtn" data-disease="measles" type="button">Spalničky</button><a class="dlink" href="https://www.ockovacicentrum.cz/cz/spalnicky" target="_blank" rel="noopener noreferrer" aria-label="Otevřít detail nemoci: Spalničky">↗</a></span>
         <span class="dctrl"><button class="fbtn" data-disease="flu" type="button">Chřipka</button><a class="dlink" href="https://www.ockovacicentrum.cz/cz/ockovani-proti-chripce-sezona-2025-2026" target="_blank" rel="noopener noreferrer" aria-label="Otevřít detail nemoci: Chřipka">↗</a></span>
+        <span class="dctrl"><button class="fbtn" data-disease="leishmaniasis" type="button">Leishmanióza</button><a class="dlink" href="https://www.ockovacicentrum.cz/cz/leishmanioza" target="_blank" rel="noopener noreferrer" aria-label="Otevřít detail nemoci: Leishmanióza">↗</a></span>
+        <span class="dctrl"><button class="fbtn" data-disease="chagas" type="button">Chagasova nemoc</button><a class="dlink" href="https://www.ockovacicentrum.cz/cz/americka-trypanozomiaza-chagasova-nemoc" target="_blank" rel="noopener noreferrer" aria-label="Otevřít detail nemoci: Chagasova nemoc">↗</a></span>
       </div>
     </details>
     <span class="fstatus" id="filter-status">Vyberte nemoc nebo riziko a mapa zvýrazní relevantní destinace.</span>
@@ -91,7 +101,7 @@
     <div id="zc">
       <button class="zbtn" id="zi" title="Přiblížit">+</button>
       <button class="zbtn" id="zo" title="Oddálit">−</button>
-      <button class="zbtn sm" id="zr" title="Výchozí pohled">&#8962;</button>
+      <button class="zbtn sm" id="zr" title="Vrátit mapu na výchozí pohled" aria-label="Vrátit mapu na výchozí pohled"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 10.5 12 4.3l7.5 6.2"></path><path d="M6.8 9.1v10h10.4v-10"></path><path d="M10 19.1v-5.2h4v5.2"></path></svg></button>
     </div>
   </div>
   <div id="filter-results" class="filter-results" aria-live="polite"></div>
@@ -108,7 +118,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
-<script src="assets/js/config.js?v=23.0"></script>
-<script src="assets/js/app.js?v=23.0"></script>
+<script src="assets/js/config.js?v=23.3"></script>
+<script src="assets/js/app.js?v=23.3"></script>
 </body>
 </html>

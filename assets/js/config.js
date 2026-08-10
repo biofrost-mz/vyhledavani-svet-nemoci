@@ -258,7 +258,37 @@ const DISEASES={
     url:'https://www.ockovacicentrum.cz/cz/horecka-dengue',
     color:'#78BE20',
     hover:'#5fa018',
+    facetColors:{endemic:'#CA005D',general:'#78BE20'},
+    facetHover:{endemic:'#a9004e',general:'#5fa018'},
     aliases:['horecka-dengue','dengue','dengue-fever','dengue-vaccine']
+  },
+  'chikungunya':{
+    label:'Chikungunya',
+    url:'https://www.ockovacicentrum.cz/cz/chikungunya',
+    color:'#78BE20',
+    hover:'#5fa018',
+    aliases:['chikungunya']
+  },
+  'zika':{
+    label:'Zika',
+    url:'https://www.ockovacicentrum.cz/cz/zika',
+    color:'#78BE20',
+    hover:'#5fa018',
+    aliases:['zika','virus-zika']
+  },
+  'leishmaniasis':{
+    label:'Leishmanióza',
+    url:'https://www.ockovacicentrum.cz/cz/leishmanioza',
+    color:'#78BE20',
+    hover:'#5fa018',
+    aliases:['leishmanioza','leishmaniasis']
+  },
+  'chagas':{
+    label:'Chagasova nemoc',
+    url:'https://www.ockovacicentrum.cz/cz/americka-trypanozomiaza-chagasova-nemoc',
+    color:'#78BE20',
+    hover:'#5fa018',
+    aliases:['americka-trypanozomiaza','chagasova-nemoc','chagas-disease']
   },
   'rabies':{
     label:'Vzteklina',
@@ -379,7 +409,7 @@ const STATIC_DISEASE_INDEX={
     sourceLabel:'CDC Yellow Book 2026',
     sourceUrl:'https://www.cdc.gov/yellow-book/hcp/preparing-international-travelers/yellow-fever-vaccine-and-malaria-prevention-information-by-country.html',
     reviewedLabel:'ověřeno 10. 8. 2026',
-    note:'Vstupní podmínky se načítají z Avenier API. Kandidáty na místní riziko aplikace odvozuje z kategorií Avenier a ověřuje je podle CDC, protože samotné API obě situace nerozlišuje konzistentně. Riziko znamená doporučení očkování alespoň pro část území, ne hlášení aktuální epidemie.',
+    note:'Barvy rozlišují místní riziko žluté zimnice a vstupní podmínku při cestě z rizikové oblasti. Místní riziko znamená doporučení očkování alespoň pro část území, nikoli zprávu o právě probíhající epidemii.',
     destinationSlugs:[
       'angola','argentina','benin','bolivie','brazilie','burkina-faso','burundi','cad',
       'demokraticka-republika-kongo-zair','ekvador','francouzska-guyana','gabon','gambie',
@@ -393,7 +423,7 @@ const STATIC_DISEASE_INDEX={
     sourceLabel:'CDC Yellow Book 2026',
     sourceUrl:'https://www.cdc.gov/yellow-book/hcp/preparing-international-travelers/yellow-fever-vaccine-and-malaria-prevention-information-by-country.html',
     reviewedLabel:'ověřeno 10. 8. 2026',
-    note:'Zvýraznění znamená, že zdroj uvádí přenos malárie alespoň v části země. Riziko bývá regionální, sezónní a závisí na trase i stylu cesty. Neznamená automatické doporučení antimalarik pro celou zemi; konkrétní prevenci musí určit lékař.',
+    note:'Mapa zvýrazňuje země, kde se malárie může vyskytovat alespoň v části území. Riziko se často liší podle oblasti, roční doby, trasy i způsobu cestování. Vhodnou ochranu je proto potřeba posoudit podle konkrétní cesty.',
     destinationSlugs:[
       'afghanistan','angola','banglades','benin','bhutan','bolivie','botswana','brazilie',
       'brunej','burkina-faso','burundi','cad','demokraticka-republika-kongo-zair',
@@ -409,6 +439,61 @@ const STATIC_DISEASE_INDEX={
       'sierra-leone','somalsko','stredoafricka-republika','sudan','svaty-tomas-a-princuv-ostrov',
       'svazijsko','tanzanie','thajsko','togo','uganda','vanuatu','venezuela','vietnam',
       'zambie','zimbabwe'
+    ]
+  },
+  'chikungunya':{
+    sourceLabel:'CDC – Areas at Risk for Chikungunya',
+    sourceUrl:'https://www.cdc.gov/chikungunya/data-maps/',
+    reviewedLabel:'ověřeno 10. 8. 2026',
+    note:'Zvýrazněné jsou destinace, pro které CDC uvádí aktuální ohnisko nebo zvýšené riziko pro cestovatele. Seznam se může měnit rychleji než ostatní filtry; před cestou vždy otevřete aktuální zdroj.',
+    destinationSlugs:[
+      'bolivie','brazilie','francouzska-guyana','indie','indonesie','kolumbie','kostarika',
+      'mauricius','mexiko','nigerie','nikaragua','pakistan','peru','filipiny','seychely',
+      'surinam','thajsko'
+    ]
+  },
+  'zika':{
+    sourceLabel:'CDC – Countries & Territories at Risk for Zika',
+    sourceUrl:'https://www.cdc.gov/zika/geo/',
+    reviewedLabel:'klasifikace CDC k 15. 5. 2026, ověřeno 10. 8. 2026',
+    note:'Mapa zobrazuje destinace s aktuálním nebo dříve potvrzeným místním přenosem viru Zika. Neříká, že právě probíhá epidemie; CDC tuto širší kategorii používá kvůli rozdílům v kvalitě sledování mezi zeměmi.',
+    destinationSlugs:[
+      'americke-panenske-ostrovy','angola','anguilla','antigua-a-barbuda','argentina','aruba',
+      'bahamy','banglades','barbados','belize','bolivie','bonaire','brazilie',
+      'britske-panenske-ostrovy','burkina-faso','burundi','cookovy-ostrovy','curacao',
+      'dominika','dominikanska-republika','ekvador','etiopie','fidzi','filipiny',
+      'francouzska-guyana','francouzska-polynesie','gabon','grenada','guadeloupe','guatemala',
+      'guinea','guinea-bissau','guyana','haiti','honduras','indie','indonesie','jamajka','jemen',
+      'kajmanske-ostrovy','kambodza','kamerun','kapverdy','kena','kiribati','kolumbie',
+      'kostarika','kuba','laos','madagaskar','malajsie','maledivy','mali','marshallovy-ostrovy',
+      'martinik','mexiko','mikronesie','montserrat','myanmar-barma','nigerie','nikaragua',
+      'nova-kaledonie','pakistan','palau','panama','papua-nova-guinea','paraguay','peru',
+      'pobrezi-slonoviny','portoriko','saint-barthelemy','saint-martin','salvador','samoa',
+      'senegal','seychely','singapur','sint-maarten','sri-lanka','stredoafricka-republika',
+      'surinam','svata-lucie','svaty-krystof-a-nevis','svaty-vincenc-a-grenadiny',
+      'salamounovy-ostrovy','thajsko','tonga','trinidad-a-tobago','turks-a-caicos','uganda',
+      'vanuatu','venezuela','vietnam'
+    ]
+  },
+  'leishmaniasis':{
+    sourceLabel:'WHO Global Health Observatory – Leishmaniasis',
+    sourceUrl:'https://www.who.int/data/gho/data/themes/topics/topic-details/GHO/leishmaniasis',
+    reviewedLabel:'data za rok 2024, ověřeno 10. 8. 2026',
+    note:'Pro přehlednost jsou zvýrazněny země s nejvyšší hlášenou zátěží v datech WHO za rok 2024: více než 5 000 případů kožní formy nebo země tvořící přibližně 85 % hlášených případů viscerální formy. Nemoc se může vyskytovat i jinde.',
+    destinationSlugs:[
+      'afghanistan','alzirsko','brazilie','etiopie','indie','iran','kena','kolumbie','peru',
+      'somalsko','sudan','syrie','jizni-sudan'
+    ]
+  },
+  'chagas':{
+    sourceLabel:'WHO – Chagas disease',
+    sourceUrl:'https://www.who.int/news-room/fact-sheets/detail/chagas-disease-%28american-trypanosomiasis%29',
+    reviewedLabel:'ověřeno 10. 8. 2026',
+    note:'Zvýrazněno je 21 pevninských zemí Latinské Ameriky, které WHO uvádí jako endemické. Riziko není v rámci zemí rovnoměrné a souvisí zejména s konkrétní oblastí a podmínkami pobytu.',
+    destinationSlugs:[
+      'argentina','belize','bolivie','brazilie','chile','ekvador','francouzska-guyana',
+      'guatemala','guyana','honduras','kolumbie','kostarika','mexiko','nikaragua','panama',
+      'paraguay','peru','salvador','surinam','uruguay','venezuela'
     ]
   }
 };

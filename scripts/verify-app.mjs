@@ -42,5 +42,7 @@ const versions=[...html.matchAll(/(?:map\.css|config\.js|app\.js)\?v=([^"']+)/g)
 assert(versions.length===3,'V index.html chybí verzování některého hlavního souboru.');
 assert(new Set(versions).size===1,'Hlavní soubory nemají stejné číslo verze.');
 assert(config.includes("const DISEASE_INDEX_API_URL='assets/data/disease-index.json';"),'Aplikace nemá nastavený lokální index nemocí.');
+const app=await readFile(resolve(root,'assets/js/app.js'),'utf8');
+assert(app.includes('data-yf-facet')&&app.includes('setYellowFeverFacet'),'Chybí ovládání podfiltrů žluté zimnice.');
 
 console.log(`Kontrola v pořádku: ${index.destinationCount} destinací, ${requiredDiseases.length} nemocí, verze ${versions[0]}.`);

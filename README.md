@@ -99,3 +99,32 @@ Verze v22.4 (odolnost datové vrstvy):
 - GitHub Actions jednou denně index přepočítá, ověří a při skutečné změně připraví návrh ke kontrole; produkci nemění bez schválení,
 - každý návrh i změna hlavní větve prochází kontrolou syntaxe a vnitřní konzistence indexu,
 - statické assety mají verzovaný cache-buster `v=23.0`.
+
+## v23.1 – klikací podfiltry žluté zimnice
+
+- legenda žluté zimnice v mapě funguje jako podfiltr: vše, místní riziko, pouze vstupní podmínka nebo obojí,
+- stejný podfiltr je dostupný také nad výsledky a oba ovládací prvky zůstávají synchronizované,
+- mapa, počet destinací i seznam výsledků vždy odpovídají zvolené kategorii,
+- při návratu k hlavnímu filtru žluté zimnice se podfiltr bezpečně nastaví zpět na všechny kategorie,
+- statické assety mají verzovaný cache-buster `v=23.1`.
+
+## v23.2 – srozumitelnější rozhraní mapy
+
+- přehled 230 destinací se přesunul do modálního okna dostupného z horního stavového tlačítka,
+- hlavní stránka už nezobrazuje samostatný pruh s technickými počty mapových území,
+- kategorie žluté zimnice používají jednoznačné názvy „Místní riziko“, „Vstupní podmínka“ a „Místní riziko + vstupní podmínka“,
+- vysvětlení filtrů používají přístupnější text a odkaz „Více o nemoci“,
+- název země při najetí je posunutý nad spodní nápovědu,
+- ovládání výchozího pohledu mapy používá čistou vektorovou ikonu domu,
+- statické assety mají verzovaný cache-buster `v=23.2`.
+
+## v23.3 – nové cestovatelské nemoci, zdroje a dengue
+
+- přidány filtry Zika a chikungunya podle cestovatelských přehledů CDC,
+- přidány filtry leishmaniózy (země s nejvyšší hlášenou zátěží) a Chagasovy nemoci podle WHO,
+- každá nemoc s externími daty ukazuje zdroj, datum kontroly a přímý odkaz v mapě i u výsledků,
+- zdroj místního rizika žluté zimnice je nově viditelný také přímo v mapové legendě,
+- horečka dengue se podle přesných názvů položek v API dělí na „Endemický výskyt“ (94 destinací) a „Další doporučení“ (45 destinací),
+- text výslovně upozorňuje, že API nerozlišuje vysoké a sporadické riziko dengue,
+- Ebola zůstává záměrně mimo trvalé filtry,
+- statické assety mají verzovaný cache-buster `v=23.3`.

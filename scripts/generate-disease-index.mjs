@@ -116,6 +116,8 @@ async function main(){
 
   const details=await loadDetails(rows);
   const diseaseSets=Object.fromEntries(Object.keys(matchers).map(key=>[key,new Set()]));
+  const dengueEndemic=new Set();
+  const dengueGeneral=new Set();
   const entry=new Set();
   const riskCandidates=new Set();
   const catalog=new Map();
@@ -126,6 +128,8 @@ async function main(){
     Object.entries(matchers).forEach(([key,matcher])=>{
       if(normalizedItems.some(matcher))diseaseSets[key].add(destinationSlug);
     });
+    if(normalizedItems.includes('horecka-dengue-endemicky-vyskyt'))dengueEndemic.add(destinationSlug);
+    if(normalizedItems.includes('horecka-dengue'))dengueGeneral.add(destinationSlug);
 
     allItems(detail).forEach(item=>{
       const name=itemName(item).trim();
@@ -149,6 +153,10 @@ async function main(){
     const destinationSlugs=[...set].sort();
     diseases[key]={count:destinationSlugs.length,destinationSlugs};
   });
+  diseases.dengue.facets={
+    endemicDestinationSlugs:[...dengueEndemic].sort(),
+    generalDestinationSlugs:[...dengueGeneral].filter(slug=>!dengueEndemic.has(slug)).sort()
+  };
   const payload={
     schemaVersion:1,
     generatedAt:new Date().toISOString(),
