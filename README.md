@@ -166,6 +166,49 @@ Opravy nalezené při systematickém průchodu aplikací.
 - akce v kartě se na mobilu skládají do jedné posuvné řady, aby se karta neořezávala,
 - statické assety mají verzovaný cache-buster `v=23.5`.
 
+## v23.6 – export aktuální mapy do PNG
+
+- nad mapou je tlačítko „Stáhnout mapu jako PNG“, které bez serverové služby vytvoří obraz v rozlišení 3840 × 2160 px,
+- export vždy zachová právě zvolenou nemoc a podkategorii, ale používá čistý výchozí pohled na svět bez náhodného zoomu, najetí myší nebo vybrané země,
+- obrázek obsahuje název filtru, počet destinací, barevnou legendu, zdroj a adresu zdroje, stav či datum dat, datum vytvoření, upozornění a logo Avenier,
+- zdrojové údaje se přebírají ze stejné konfigurace jako legenda v aplikaci; u běžných filtrů se uvádějí cestovní doporučení Avenier, u externích filtrů CDC nebo WHO,
+- soubor se pojmenuje podle filtru, podkategorie a data vytvoření,
+- statické assety mají verzovaný cache-buster `v=23.6`.
+
+## v23.7 – celý svět a volby exportu
+
+- tlačítko exportu nově otevře nastavení obrázku; u žluté zimnice a horečky dengue lze zvolit všechny kategorie nebo jednu konkrétní,
+- výchozí je vždy export všech kategorií bez ohledu na podfiltr právě zvolený v interaktivní mapě,
+- výchozí rozvržení používá mapu téměř přes celý obraz a vkládá menší název, logo, legendu, zdroj a data do průsvitných panelů uvnitř mapy,
+- původní varianta s informační hlavičkou zůstává dostupná jako druhá volba,
+- exportní projekce se přizpůsobuje dostupnému prostoru podle celého obrysu Země, takže není závislá na zoomu ani rozměru mapy na obrazovce a neořezává severní či jižní okraj,
+- statické assety mají verzovaný cache-buster `v=23.7`.
+
+## v23.8 – kompaktní ovládání a skleněný export
+
+- export už nezabírá samostatný řádek nad mapou; ikona stažení je ve svislém ovládání mapy přímo nad tlačítkem přiblížení,
+- exportní legendy používají přístupnější označení „Ostatní destinace“ a neuvádějí technickou kategorii „Bez dostupného detailu“,
+- dominantní rozvržení skládá kategorie pod sebe do užšího panelu místo širokého řádku přes mapu,
+- logo a zdroj jsou na lehce průhledných skleněných panelech; blok zdroje se přizpůsobuje nejdelšímu obsaženému textu,
+- stav zdroje a datum vytvoření jsou samostatně bílým písmem v pravém dolním rohu bez podkladového panelu,
+- dialog nastavení exportu je vždy vycentrovaný doprostřed obrazovky,
+- statické assety mají verzovaný cache-buster `v=23.8`.
+
+## v24.0 – srozumitelnější detail, správná čeština a zdroje
+
+- počítadla používají správné české tvary pro 1, 2–4 a 0 či 5+; nulové hodnoty se v detailu už neskrývají,
+- odkazy na detail destinace se zobrazují jen tehdy, když zdrojová data obsahují skutečnou adresu stránky,
+- texty používají jednotně pojem destinace, vykání a název „Další doporučení a rizika“ bez technických zmínek o API,
+- nemoci doplněné z CDC a WHO se zobrazují v samostatném bloku detailu se zdrojem, datem ověření a odkazem na stránku Očkovacího centra,
+- rozbalení dalších nemocí je výraznější a export pro všechny filtry používá kompaktní panel i samostatné logo bez podkladu,
+- statické assety mají verzovaný cache-buster `v=24.0`.
+
+## v23.9 – užší informační panel a samostatné logo
+
+- levý informační panel dominantního exportu má přibližně poloviční šířku oproti předchozí variantě,
+- pod logem Avenier není žádný bílý, barevný ani průhledný panel; logo se kreslí samostatně nad mapou,
+- statické assety mají verzovaný cache-buster `v=23.9`.
+
 ### Známá omezení
 - aplikaci je potřeba servírovat přes HTTP(S); při otevření přes `file://` selže načtení dat kvůli CORS,
 - filtry žloutenky A i B (230/230), meningokoka (229), spalniček (228) a chřipky (226) zvýrazní téměř celou mapu; upozorňuje na to poznámka pod výsledky,

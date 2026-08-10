@@ -286,7 +286,7 @@ const DISEASES={
     aliases:['brisni-tyfus','brsni-tyfus','tyfus','typhoid','typhoid-fever','typhoid-vaccine']
   },
   'dengue':{
-    label:'Horečka Dengue',
+    label:'Horečka dengue',
     url:'https://www.ockovacicentrum.cz/cz/horecka-dengue',
     color:'#78BE20',
     hover:'#5fa018',

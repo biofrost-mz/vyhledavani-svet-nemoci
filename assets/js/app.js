@@ -116,6 +116,34 @@ function unique(arr){return [...new Set(arr.filter(Boolean))];}
    vykreslují do rozhraní. */
 function cleanName(value){return String(value??'').replace(/\s+/g,' ').trim();}
 
+/* ── České číslovky ──
+   Čeština má u čísel tři tvary: 1 (jednotné), 2–4 (množné) a 0 nebo 5+ (2. pád
+   množného čísla). Bez toho se v rozhraní objevovalo „0 povinné“ nebo
+   „13 doporučené“. */
+function pluralForm(count,one,few,many){
+  const n=Math.abs(Number(count));
+  if(!Number.isFinite(n))return many;
+  if(n===1)return one;
+  if(n>=2&&n<=4)return few;
+  return many;
+}
+
+function countWithNoun(count,one,few,many){
+  return `${count} ${pluralForm(count,one,few,many)}`;
+}
+
+/* Tvary, které se v rozhraní opakují. */
+const COUNT_FORMS={
+  destination:['destinace','destinace','destinací'],
+  required:['povinné očkování','povinná očkování','povinných očkování'],
+  basic:['základní očkování','základní očkování','základních očkování'],
+  recommended:['další doporučení','další doporučení','dalších doporučení'],
+  external:['doplňkové riziko','doplňková rizika','doplňkových rizik']
+};
+
+function countDestinations(count){return countWithNoun(count,...COUNT_FORMS.destination);}
+function destinationsWord(count){return pluralForm(count,...COUNT_FORMS.destination);}
+
 function countryKeys(numId,en,cz){
   return unique([
     en,cz,
@@ -684,7 +712,7 @@ async function buildDiseaseIndexFromDetails(key,{token=null}={}){
     retryAt:failures.size?Date.now()+DETAIL_ERROR_RETRY_MS:null
   });
   if(loader && isCurrent())loader.classList.remove('on');
-  if(status && isCurrent())status.textContent=`${DISEASES[key].label}: zvýrazněno ${hits.size} destinací.`;
+  if(status && isCurrent())status.textContent=`${DISEASES[key].label}: zvýrazněno ${countDestinations(hits.size)}.`;
   return hits;
 }
 
@@ -696,6 +724,50 @@ function configuredStaticIds(key){
     if(slugs.has(slugKey(info?.slug)))ids.add(normId(id));
   });
   return ids;
+}
+
+/* Některá rozšířená cestovatelská rizika doplňujeme z veřejných odborných
+   zdrojů. V detailu je držíme odděleně od doporučení pro destinaci, aby bylo
+   vždy zřejmé, odkud informace pochází. Pokud už je nemoc uvedena přímo v
+   doporučeních destinace, podruhé ji zde neopakujeme. */
+const EXTERNAL_DETAIL_DISEASES=['yellow-fever','malaria','chikungunya','zika','leishmaniasis','chagas'];
+
+function externalDiseaseItems(info,data){
+  if(!info)return[];
+  const id=normId(info.id??info.numId);
+  return EXTERNAL_DETAIL_DISEASES.flatMap(key=>{
+    const disease=DISEASES[key];
+    const source=staticDiseaseConfig(key);
+    if(!disease||!source||!configuredStaticIds(key).has(id)||dataHasDisease(data,key))return[];
+    return[{key,label:disease.label,url:disease.url,sourceLabel:source.sourceLabel,sourceUrl:source.sourceUrl,reviewedLabel:source.reviewedLabel,note:source.note}];
+  });
+}
+
+function externalDiseaseSectionHtml(info,data){
+  const items=externalDiseaseItems(info,data);
+  if(!items.length)return'';
+  return `<section class="external-diseases" aria-labelledby="external-diseases-title">
+    <div class="external-diseases-head">
+      <div>
+        <p class="external-kicker">Doplňující odborné zdroje</p>
+        <h3 id="external-diseases-title">Další nemoci a rizika v destinaci</h3>
+      </div>
+      <span class="external-count">${countWithNoun(items.length,...COUNT_FORMS.external)}</span>
+    </div>
+    <p class="external-intro">Tyto informace doplňují cestovní doporučení výše. Vycházejí z veřejných podkladů CDC nebo WHO a mohou se měnit rychleji.</p>
+    <div class="external-grid">${items.map(item=>`<article class="external-card">
+      <a class="external-name" href="${esc(item.url)}" target="_blank" rel="noopener noreferrer">${esc(item.label)} <span aria-hidden="true">↗</span></a>
+      <p>${esc(item.note)}</p>
+      <div class="external-meta">
+        <a href="${esc(item.sourceUrl)}" target="_blank" rel="noopener noreferrer">Zdroj: ${esc(item.sourceLabel)} ↗</a>
+        ${item.reviewedLabel?`<span>${esc(item.reviewedLabel)}</span>`:''}
+      </div>
+    </article>`).join('')}</div>
+  </section>`;
+}
+
+function consultationNoteHtml(){
+  return `<aside class="consult-note"><strong>Doporučení přizpůsobené vaší cestě</strong><span>Konkrétní ochrana závisí na trase, délce pobytu, způsobu cestování i zdravotním stavu. Naši specialisté s vámi projdou očkování i další rizika osobně.</span></aside>`;
 }
 
 /* Místní riziko žluté zimnice = sjednocení obou zdrojů.
@@ -912,7 +984,7 @@ function renderFilterResults(){
   box.innerHTML=`<div class="fr-head">
     <div>
       <div class="fr-title">${esc(cfg?.label||'Vybraný filtr')}${isYellowFever&&activeYellowFeverFacet!=='all'?` – ${esc(yellowFeverFacetLabel(activeYellowFeverFacet))}`:isDengue&&activeDengueFacet!=='all'?` – ${esc(dengueFacetLabel(activeDengueFacet))}`:' – destinace v aktuálním filtru'}</div>
-      <div class="fr-count"><strong>${hits.length}</strong> destinací</div>
+      <div class="fr-count"><strong>${hits.length}</strong> ${esc(destinationsWord(hits.length))}</div>
       <div class="fr-sub">Kliknutím na destinaci otevřete detail v mapě. Další související nemoci a rizika najdete po otevření detailu destinace.</div>
     </div>
   </div>
@@ -1043,12 +1115,12 @@ function yellowFeverOverview(){
   const cfg=staticDiseaseConfig('yellow-fever');
   const totals=yellowFeverTotals();
   const failures=diseaseFacets.get('yellow-fever')?.failures?.size||0;
-  const fallback=failures?` U ${failures} destinací se nepodařilo načíst vstupní podmínku; aplikace je zkusí doplnit při dalším použití filtru po 90 sekundách.`:'';
+  const fallback=failures?` U ${countDestinations(failures)} se nepodařilo načíst vstupní podmínku; aplikace se ji pokusí načíst znovu později.`:'';
   return `<div class="fr-yf-overview">
     <div class="fr-yf-copy">
       <strong>Co ukazují barvy?</strong>
       <span>Rozlišují místní riziko od vstupní podmínky při cestě z rizikové oblasti. Místní riziko neznamená aktuální epidemii, ale doporučení očkování alespoň pro část území.${esc(fallback)}</span>
-      <span class="fr-yf-totals">Celkem má <b>${totals.risk}</b> destinací místní riziko a <b>${totals.entry}</b> vstupní podmínku.</span>
+      <span class="fr-yf-totals">Celkem má <b>${countDestinations(totals.risk)}</b> místní riziko a <b>${countDestinations(totals.entry)}</b> vstupní podmínku.</span>
       ${facetGlossaryHtml('yellow-fever')}
       <span class="fr-yf-links">
         <a href="${esc(DISEASES['yellow-fever']?.url||'#')}" target="_blank" rel="noopener noreferrer">Hlavní zdroj: doporučení Avenier</a>
@@ -1142,7 +1214,7 @@ function filterSourceNote(key,hitCount){
   const broad=availableCount>0 && hitCount/availableCount>=.85;
   const broadNote=broad?' Tato položka je v datech uvedena téměř u všech destinací, takže filtr mapu výrazně nezúží.':'';
   const meta=diseaseIndexMeta.get(key);
-  const coverageNote=meta?.failures?.size?` U ${meta.failures.size} destinací se detail nepodařilo načíst, takže výsledek může být neúplný. Při dalším použití filtru po 90 sekundách se aplikace pokusí data doplnit.`:'';
+  const coverageNote=meta?.failures?.size?` U ${countDestinations(meta.failures.size)} se doporučení nepodařilo načíst, takže výsledek může být neúplný. Aplikace se je pokusí načíst znovu později.`:'';
   return `<div class="fr-source-note">
     <strong>Co na mapě vidíte:</strong> Zvýrazněné jsou destinace, jejichž cestovní doporučení zmiňují tuto nemoc nebo související očkování. Neznamená to automaticky aktuální epidemii ani stejné doporučení pro každého cestovatele; záleží na trase, délce a způsobu cesty.${esc(broadNote)} ${esc(coverageNote)}
     ${cfg?.url?`<a href="${esc(cfg.url)}" target="_blank" rel="noopener noreferrer">Více o nemoci</a>`:''}
@@ -1168,7 +1240,7 @@ function repaintMap(){
    Statický popis „bez filtru“ mátl, protože při aktivním filtru znamenají
    stejné odstíny něco jiného. */
 function mapLegendItems(){
-  const noData={color:MC.none,label:'Bez dostupného detailu'};
+  const noData={color:MC.none,label:'Bez cestovních doporučení'};
   const selected={color:MC.sel,label:'Aktivní výběr'};
   if(!activeDisease||activeDisease==='all'){
     return [{color:MC.has,label:'Destinace s doporučeními'},noData,selected];
@@ -1205,6 +1277,469 @@ function renderMapLegend(){
     .map(it=>`<div class="li"><span class="ld" style="background:${esc(it.color)}"></span><span>${esc(it.label)}</span></div>`)
     .join('');
   box.innerHTML=`${items}<span class="lh">Táhnutím pohyb · kolečkem zoom</span>`;
+}
+
+/* ── Export aktuálního filtru do 4K PNG ──
+   Export se kreslí z mapových dat znovu, takže má vždy stejný poměr stran a
+   rozlišení bez ohledu na velikost telefonu, zoom nebo právě vybranou zemi. */
+const MAP_EXPORT={width:3840,height:2160,mapWidth:3520,mapHeight:1370,logo:'assets/img/avenier-logo.png'};
+
+function normalizedExportOptions(options={}){
+  const disease=activeDisease||'all';
+  const supportsFacets=disease==='yellow-fever'||disease==='dengue';
+  const allowed=disease==='yellow-fever'?new Set(['all','risk','entry','both']):new Set(['all','endemic','general']);
+  const requested=String(options.facet||'all');
+  return{
+    disease,
+    facet:supportsFacets&&allowed.has(requested)?requested:'all',
+    layout:options.layout==='classic'?'classic':'map'
+  };
+}
+
+function exportFacetLabel(options={}){
+  const opts=normalizedExportOptions(options);
+  if(opts.disease==='yellow-fever'&&opts.facet!=='all')return yellowFeverFacetLabel(opts.facet);
+  if(opts.disease==='dengue'&&opts.facet!=='all')return dengueFacetLabel(opts.facet);
+  return '';
+}
+
+function exportDiseaseHits(options={}){
+  const opts=normalizedExportOptions(options);
+  if(opts.disease==='all')return new Set([...FI.entries()].filter(([,info])=>info.has).map(([id])=>normId(id)));
+  const hits=effectiveDiseaseHits(opts.disease);
+  if(opts.facet==='all')return hits;
+  return new Set([...hits].filter(id=>diseaseFacetForId(opts.disease,id)===opts.facet));
+}
+
+function exportColorForId(id,options={}){
+  const opts=normalizedExportOptions(options);
+  const nid=normId(id);
+  const info=FI.get(nid);
+  if(!info?.has)return MC.none;
+  if(opts.disease==='all')return MC.has;
+  if(!exportDiseaseHits(opts).has(nid))return MC.dim;
+  const facet=diseaseFacetForId(opts.disease,nid);
+  return facet?DISEASES[opts.disease]?.facetColors?.[facet]||DISEASES[opts.disease].color:DISEASES[opts.disease].color;
+}
+
+function exportLegendItems(options={}){
+  const opts=normalizedExportOptions(options);
+  if(opts.disease==='all')return[
+    {color:MC.has,label:'Destinace s doporučeními'}
+  ];
+  const cfg=DISEASES[opts.disease];
+  const items=[];
+  if(opts.disease==='yellow-fever'){
+    [
+      {facet:'risk',color:cfg.facetColors.risk,label:'Pouze místní riziko'},
+      {facet:'entry',color:cfg.facetColors.entry,label:'Pouze vstupní podmínka'},
+      {facet:'both',color:cfg.facetColors.both,label:'Místní riziko i vstupní podmínka'}
+    ].filter(item=>opts.facet==='all'||item.facet===opts.facet).forEach(item=>items.push(item));
+  }else if(opts.disease==='dengue'){
+    [
+      {facet:'endemic',color:cfg.facetColors.endemic,label:'Endemický výskyt'},
+      {facet:'general',color:cfg.facetColors.general,label:'Další doporučení'}
+    ].filter(item=>opts.facet==='all'||item.facet===opts.facet).forEach(item=>items.push(item));
+  }else items.push({color:cfg?.color||MC.has,label:`Odpovídá filtru: ${cfg?.label||'vybraná nemoc'}`});
+  items.push({color:MC.dim,label:'Ostatní destinace'});
+  return items;
+}
+
+function exportMetadata(options={}){
+  const opts=normalizedExportOptions(options);
+  const now=new Date();
+  const dateFormat=new Intl.DateTimeFormat('cs-CZ',{day:'numeric',month:'numeric',year:'numeric'});
+  const disease=opts.disease!=='all'?DISEASES[opts.disease]:null;
+  const facet=exportFacetLabel(opts);
+  const staticCfg=staticDiseaseConfig(opts.disease);
+  const count=exportDiseaseHits(opts).size;
+  let sourceLabel='Avenier – cestovní doporučení podle destinace';
+  let sourceUrl='https://www.ockovacicentrum.cz/';
+  let dataDate=diseaseIndexGeneratedAt?`Aktualizace dat: ${dateFormat.format(new Date(diseaseIndexGeneratedAt))}`:`Data načtena: ${dateFormat.format(now)}`;
+
+  if(staticCfg){
+    sourceLabel=staticCfg.sourceLabel||sourceLabel;
+    sourceUrl=staticCfg.sourceUrl||sourceUrl;
+    dataDate=staticCfg.reviewedLabel?`Stav zdroje: ${staticCfg.reviewedLabel}`:dataDate;
+  }
+  if(opts.disease==='yellow-fever'){
+    sourceLabel=`Avenier – cestovní doporučení + ${staticCfg?.sourceLabel||'CDC Yellow Book'}`;
+  }
+
+  return{
+    title:disease?disease.label:'Všechny destinace s doporučeními',
+    facet,
+    count,
+    sourceLabel,
+    sourceUrl,
+    dataDate,
+    exportDate:`Obrázek vytvořen: ${dateFormat.format(now)}`,
+    fileDate:now.toISOString().slice(0,10),
+    options:opts
+  };
+}
+
+function loadExportImage(src){
+  return new Promise((resolve,reject)=>{
+    const img=new Image();
+    img.onload=()=>resolve(img);
+    img.onerror=()=>reject(new Error(`Nepodařilo se načíst obrázek: ${src}`));
+    img.src=src;
+  });
+}
+
+function canvasBlob(canvas){
+  return new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('Prohlížeč nevytvořil PNG.')),'image/png'));
+}
+
+function exportLogoCanvas(img){
+  const work=document.createElement('canvas');
+  work.width=img.naturalWidth||img.width;
+  work.height=img.naturalHeight||img.height;
+  const ctx=work.getContext('2d',{willReadFrequently:true});
+  ctx.drawImage(img,0,0);
+  try{
+    const image=ctx.getImageData(0,0,work.width,work.height);
+    const data=image.data;
+    let minX=work.width,minY=work.height,maxX=0,maxY=0;
+    for(let y=0;y<work.height;y+=2){
+      for(let x=0;x<work.width;x+=2){
+        const i=(y*work.width+x)*4;
+        const r=data[i],g=data[i+1],b=data[i+2],a=data[i+3];
+        const nearWhite=r>247&&g>247&&b>247;
+        if(a>12&&!nearWhite){minX=Math.min(minX,x);minY=Math.min(minY,y);maxX=Math.max(maxX,x);maxY=Math.max(maxY,y);}
+      }
+    }
+    /* Dodaný soubor má za logem černou výplň. V exportu ji zprůhledníme,
+       tmavě šedé písmo přitom zůstane zachované. */
+    for(let i=0;i<data.length;i+=4){
+      if(data[i]<20&&data[i+1]<20&&data[i+2]<20)data[i+3]=0;
+    }
+    ctx.putImageData(image,0,0);
+    if(minX<=maxX&&minY<=maxY){
+      const pad=24;
+      work._contentBounds={
+        x:Math.max(0,minX-pad),y:Math.max(0,minY-pad),
+        width:Math.min(work.width,maxX+pad)-Math.max(0,minX-pad),
+        height:Math.min(work.height,maxY+pad)-Math.max(0,minY-pad)
+      };
+    }
+  }catch(e){
+    work._contentBounds={x:0,y:0,width:work.width,height:work.height};
+  }
+  return work;
+}
+
+function buildExportMapSvg(width,height,options={}){
+  if(!sv?.node()||!gv?.node())throw new Error('Mapa ještě není připravená.');
+  const opts=normalizedExportOptions(options);
+  const exportHits=exportDiseaseHits(opts);
+  const color=id=>{
+    const nid=normId(id);
+    const info=FI.get(nid);
+    if(!info?.has)return MC.none;
+    if(opts.disease==='all')return MC.has;
+    if(!exportHits.has(nid))return MC.dim;
+    const facet=diseaseFacetForId(opts.disease,nid);
+    return facet?DISEASES[opts.disease]?.facetColors?.[facet]||DISEASES[opts.disease].color:DISEASES[opts.disease].color;
+  };
+  const clone=sv.node().cloneNode(true);
+  clone.setAttribute('xmlns','http://www.w3.org/2000/svg');
+  clone.setAttribute('width',width);
+  clone.setAttribute('height',height);
+  clone.setAttribute('viewBox',`0 0 ${width} ${height}`);
+  clone.removeAttribute('style');
+
+  /* fitExtent je důležité: celý obrys Země včetně pólů a Antarktidy se vždy
+     vejde do exportu bez ohledu na poměr stran mapy na obrazovce. */
+  const fullMapLayout=opts.layout==='map';
+  const exportProjection=d3.geoNaturalEarth1().fitExtent(
+    [[54,fullMapLayout?165:54],[width-54,height-(fullMapLayout?220:54)]],
+    {type:'Sphere'}
+  );
+  const exportPath=d3.geoPath().projection(exportProjection);
+  const viewport=clone.querySelector('.map-viewport');
+  if(viewport)viewport.removeAttribute('transform');
+  const ocean=clone.querySelector('.map-ocean');
+  if(ocean){ocean.setAttribute('width',width);ocean.setAttribute('height',height);}
+  const graticule=clone.querySelector('.map-graticule');
+  if(graticule)graticule.setAttribute('d',exportPath(d3.geoGraticule()()));
+  clone.querySelectorAll('path.country').forEach(path=>{
+    const id=normId(path.getAttribute('data-id'));
+    const feature=FM.get(id);
+    if(feature)path.setAttribute('d',exportPath(feature));
+    path.setAttribute('fill',color(id));
+    path.setAttribute('stroke',MC.brd);
+    path.setAttribute('stroke-width','1.15');
+    path.removeAttribute('style');
+  });
+  const borders=clone.querySelector('.map-borders');
+  if(borders&&bordersPath?.node()?.__data__){
+    borders.setAttribute('d',exportPath(bordersPath.node().__data__));
+    borders.setAttribute('stroke-width','1.2');
+  }
+  clone.querySelectorAll('circle.dest-marker').forEach(marker=>{
+    const id=normId(marker.__data__?.id??marker.getAttribute('data-id'));
+    const info=FI.get(id);
+    if(info?.coords){
+      const point=exportProjection(info.coords);
+      marker.setAttribute('cx',point[0]);
+      marker.setAttribute('cy',point[1]);
+    }
+    marker.setAttribute('r','7');
+    marker.setAttribute('fill',color(id));
+    marker.setAttribute('stroke-width','2.2');
+    marker.removeAttribute('style');
+  });
+  return new XMLSerializer().serializeToString(clone);
+}
+
+async function drawExportMap(ctx,x,y,width,height,options={},radius=34){
+  const svgText=buildExportMapSvg(width,height,options);
+  const url=URL.createObjectURL(new Blob([svgText],{type:'image/svg+xml;charset=utf-8'}));
+  try{
+    const img=await loadExportImage(url);
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(x,y,width,height,radius);
+    ctx.clip();
+    ctx.drawImage(img,x,y,width,height);
+    ctx.restore();
+    ctx.strokeStyle='rgba(0,103,120,.16)';
+    ctx.lineWidth=3;
+    ctx.beginPath();
+    ctx.roundRect(x,y,width,height,radius);
+    ctx.stroke();
+  }finally{
+    URL.revokeObjectURL(url);
+  }
+}
+
+function drawExportLegend(ctx,items,x,y,maxWidth,{fontSize=27,dotSize=13,color='#41534d',lineHeight=50}={}){
+  ctx.font=`600 ${fontSize}px 'Saira',sans-serif`;
+  let cx=x,cy=y;
+  items.filter(item=>item.label!=='Aktivní výběr').forEach(item=>{
+    const itemWidth=ctx.measureText(item.label).width+dotSize*2+50;
+    if(cx+itemWidth>x+maxWidth){cx=x;cy+=lineHeight;}
+    ctx.fillStyle=item.color;
+    ctx.beginPath();ctx.arc(cx+dotSize,cy-dotSize*.65,dotSize,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=color;
+    ctx.fillText(item.label,cx+dotSize*2+13,cy);
+    cx+=itemWidth;
+  });
+}
+
+function wrapCanvasText(ctx,text,x,y,maxWidth,lineHeight,maxLines=2){
+  const words=String(text||'').split(/\s+/);
+  let line='',lines=0;
+  for(let i=0;i<words.length;i++){
+    const test=line?`${line} ${words[i]}`:words[i];
+    if(ctx.measureText(test).width>maxWidth&&line){
+      ctx.fillText(line,x,y+lines*lineHeight);lines++;line=words[i];
+      if(lines>=maxLines)return y+(lines-1)*lineHeight;
+    }else line=test;
+  }
+  if(line&&lines<maxLines){ctx.fillText(line,x,y+lines*lineHeight);lines++;}
+  return y+Math.max(0,lines-1)*lineHeight;
+}
+
+function drawGlassPanel(ctx,x,y,width,height,radius,{light=false}={}){
+  ctx.save();
+  ctx.shadowColor='rgba(0,0,0,.22)';
+  ctx.shadowBlur=34;
+  ctx.shadowOffsetY=12;
+  const gradient=ctx.createLinearGradient(x,y,x+width,y+height);
+  if(light){
+    gradient.addColorStop(0,'rgba(255,255,255,.70)');
+    gradient.addColorStop(.55,'rgba(255,255,255,.48)');
+    gradient.addColorStop(1,'rgba(220,239,238,.34)');
+  }else{
+    gradient.addColorStop(0,'rgba(6,34,57,.78)');
+    gradient.addColorStop(.55,'rgba(8,42,64,.62)');
+    gradient.addColorStop(1,'rgba(17,69,78,.50)');
+  }
+  ctx.fillStyle=gradient;
+  ctx.beginPath();ctx.roundRect(x,y,width,height,radius);ctx.fill();
+  ctx.shadowColor='transparent';
+  ctx.strokeStyle=light?'rgba(255,255,255,.72)':'rgba(255,255,255,.30)';
+  ctx.lineWidth=2;
+  ctx.beginPath();ctx.roundRect(x,y,width,height,radius);ctx.stroke();
+  ctx.strokeStyle='rgba(255,255,255,.22)';
+  ctx.beginPath();ctx.moveTo(x+radius,y+3);ctx.lineTo(x+width-radius,y+3);ctx.stroke();
+  ctx.restore();
+}
+
+function drawExportLogo(ctx,logo,bounds,x,y,width){
+  const height=width*(bounds.height/bounds.width);
+  ctx.drawImage(logo,bounds.x,bounds.y,bounds.width,bounds.height,x,y,width,height);
+  return height;
+}
+
+async function drawClassicExport(ctx,meta,logo,bounds){
+  ctx.fillStyle='#f4f9f7';ctx.fillRect(0,0,MAP_EXPORT.width,MAP_EXPORT.height);
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,MAP_EXPORT.width,305);
+  ctx.fillStyle='#006778';ctx.fillRect(0,0,22,305);
+  drawExportLogo(ctx,logo,bounds,150,73,470);
+
+  ctx.fillStyle='#006778';ctx.font="700 26px 'Saira',sans-serif";ctx.fillText('VAKCINAČNÍ MAPA SVĚTA',760,77);
+  ctx.fillStyle='#173a35';ctx.font="700 66px 'Saira',sans-serif";ctx.fillText(meta.title,760,161);
+  ctx.fillStyle='#62736d';ctx.font="500 28px 'Open Sans',sans-serif";
+  const summary=[meta.facet||'Všechny kategorie',countDestinations(meta.count)].filter(Boolean).join(' · ');
+  ctx.fillText(summary,760,216);
+
+  await drawExportMap(ctx,160,330,3520,1455,meta.options);
+  drawExportLegend(ctx,exportLegendItems(meta.options),180,1845,3480);
+
+  ctx.fillStyle='#006778';ctx.font="700 23px 'Saira',sans-serif";ctx.fillText('ZDROJ DAT',180,1953);
+  ctx.fillStyle='#334943';ctx.font="600 25px 'Open Sans',sans-serif";ctx.fillText(meta.sourceLabel,180,1992);
+  ctx.fillStyle='#65756f';ctx.font="400 21px 'Open Sans',sans-serif";
+  wrapCanvasText(ctx,meta.sourceUrl,180,2028,2350,28,2);
+  ctx.textAlign='right';ctx.fillText(meta.dataDate,3660,1989);ctx.fillText(meta.exportDate,3660,2024);ctx.textAlign='left';
+  ctx.fillStyle='#788680';ctx.font="400 18px 'Open Sans',sans-serif";
+  ctx.fillText('Orientační přehled. Doporučení se liší podle konkrétní oblasti, délky a způsobu cesty a zdravotního stavu cestovatele.',180,2110);
+}
+
+async function drawMapDominantExport(ctx,meta,logo,bounds){
+  ctx.fillStyle='#0d2040';ctx.fillRect(0,0,MAP_EXPORT.width,MAP_EXPORT.height);
+  await drawExportMap(ctx,42,42,3756,2076,meta.options,42);
+
+  /* Skleněné plochy jsou menší než dřívější bílé boxy. Legenda je pod sebou,
+     aby nezabírala široký pás přes mapu. */
+  drawGlassPanel(ctx,128,104,570,500,28);
+  ctx.fillStyle='#9bd344';ctx.font="700 21px 'Saira',sans-serif";ctx.fillText('VAKCINAČNÍ MAPA SVĚTA',178,160);
+  ctx.fillStyle='#fff';ctx.font="700 56px 'Saira',sans-serif";ctx.fillText(meta.title,178,232);
+  ctx.fillStyle='rgba(255,255,255,.78)';ctx.font="500 23px 'Open Sans',sans-serif";
+  const summary=[meta.facet||'Všechny kategorie',countDestinations(meta.count)].join(' · ');
+  ctx.fillText(summary,178,279);
+  let legendY=347;
+  ctx.font="600 20px 'Saira',sans-serif";
+  exportLegendItems(meta.options).forEach(item=>{
+    ctx.fillStyle=item.color;
+    ctx.beginPath();ctx.arc(189,legendY-7,10,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.92)';ctx.fillText(item.label,218,legendY);
+    legendY+=48;
+  });
+
+  ctx.save();
+  ctx.shadowColor='rgba(0,0,0,.48)';ctx.shadowBlur=18;ctx.shadowOffsetY=5;
+  drawExportLogo(ctx,logo,bounds,3092,143,518);
+  ctx.restore();
+
+  const sourceNote='Orientační přehled; doporučení závisí na konkrétní cestě a zdravotním stavu.';
+  ctx.font="600 20px 'Open Sans',sans-serif";const sourceLabelWidth=ctx.measureText(meta.sourceLabel).width;
+  ctx.font="400 14px 'Open Sans',sans-serif";const sourceUrlWidth=ctx.measureText(meta.sourceUrl).width;
+  ctx.font="400 12px 'Open Sans',sans-serif";const sourceNoteWidth=ctx.measureText(sourceNote).width;
+  const sourceWidth=Math.min(2350,Math.max(760,sourceLabelWidth,sourceUrlWidth,sourceNoteWidth)+92);
+  drawGlassPanel(ctx,128,1880,sourceWidth,166,25);
+  ctx.fillStyle='#9bd344';ctx.font="700 17px 'Saira',sans-serif";ctx.fillText('ZDROJ DAT',174,1920);
+  ctx.fillStyle='rgba(255,255,255,.94)';ctx.font="600 19px 'Open Sans',sans-serif";ctx.fillText(meta.sourceLabel,174,1953);
+  ctx.fillStyle='rgba(255,255,255,.72)';ctx.font="400 14px 'Open Sans',sans-serif";
+  wrapCanvasText(ctx,meta.sourceUrl,174,1982,sourceWidth-92,20,1);
+  ctx.fillStyle='rgba(255,255,255,.62)';ctx.font="400 12px 'Open Sans',sans-serif";
+  ctx.fillText(sourceNote,174,2016);
+
+  ctx.save();
+  ctx.textAlign='right';ctx.fillStyle='#fff';ctx.shadowColor='rgba(0,0,0,.72)';ctx.shadowBlur=8;
+  ctx.font="500 16px 'Open Sans',sans-serif";ctx.fillText(meta.dataDate,3670,1985);ctx.fillText(meta.exportDate,3670,2019);
+  ctx.restore();
+}
+
+async function createMapExportBlob(options={}){
+  if(document.fonts?.ready)await document.fonts.ready;
+  const opts=normalizedExportOptions(options);
+  const meta=exportMetadata(opts);
+  const canvas=document.createElement('canvas');
+  canvas.width=MAP_EXPORT.width;
+  canvas.height=MAP_EXPORT.height;
+  const ctx=canvas.getContext('2d');
+
+  const logoImage=await loadExportImage(MAP_EXPORT.logo);
+  const logo=exportLogoCanvas(logoImage);
+  const bounds=logo._contentBounds||{x:0,y:0,width:logo.width,height:logo.height};
+  if(opts.layout==='classic')await drawClassicExport(ctx,meta,logo,bounds);
+  else await drawMapDominantExport(ctx,meta,logo,bounds);
+
+  return{blob:await canvasBlob(canvas),meta,width:canvas.width,height:canvas.height};
+}
+
+function exportFacetDefinitions(){
+  if(activeDisease==='yellow-fever')return[
+    {key:'all',label:'Všechny kategorie',description:'Místní riziko, vstupní podmínka i jejich kombinace.'},
+    {key:'risk',label:yellowFeverFacetLabel('risk'),description:FACET_INFO['yellow-fever'].risk.text},
+    {key:'entry',label:yellowFeverFacetLabel('entry'),description:FACET_INFO['yellow-fever'].entry.text},
+    {key:'both',label:yellowFeverFacetLabel('both'),description:FACET_INFO['yellow-fever'].both.text}
+  ];
+  if(activeDisease==='dengue')return[
+    {key:'all',label:'Všechny kategorie',description:'Endemický výskyt i další doporučení v jednom obrázku.'},
+    {key:'endemic',label:dengueFacetLabel('endemic'),description:FACET_INFO.dengue.endemic.text},
+    {key:'general',label:dengueFacetLabel('general'),description:FACET_INFO.dengue.general.text}
+  ];
+  return[];
+}
+
+function openMapExportDialog(){
+  const dialog=document.getElementById('map-export-dialog');
+  if(!dialog)return;
+  const current=document.getElementById('map-export-current-filter');
+  if(current)current.textContent=activeDisease==='all'?'Všechny destinace':DISEASES[activeDisease]?.label||activeDisease;
+  const fieldset=document.getElementById('map-export-facet-fieldset');
+  const optionsBox=document.getElementById('map-export-facet-options');
+  const definitions=exportFacetDefinitions();
+  if(fieldset&&optionsBox){
+    fieldset.hidden=!definitions.length;
+    optionsBox.innerHTML=definitions.map((item,index)=>`<label class="map-export-choice"><input type="radio" name="export-facet" value="${esc(item.key)}" ${index===0?'checked':''}><span><strong>${esc(item.label)}</strong><small>${esc(item.description)}</small></span></label>`).join('');
+  }
+  const defaultLayout=dialog.querySelector('input[name="export-layout"][value="map"]');
+  if(defaultLayout)defaultLayout.checked=true;
+  dialog.showModal();
+}
+
+function readMapExportOptions(){
+  const dialog=document.getElementById('map-export-dialog');
+  return normalizedExportOptions({
+    facet:dialog?.querySelector('input[name="export-facet"]:checked')?.value||'all',
+    layout:dialog?.querySelector('input[name="export-layout"]:checked')?.value||'map'
+  });
+}
+
+async function downloadMapPng(options={},trigger=null){
+  const btn=trigger||document.getElementById('map-export-create');
+  if(!btn||btn.disabled)return;
+  const label=btn.querySelector('span')||btn;
+  const original=label.textContent||'Vytvořit a stáhnout PNG';
+  btn.disabled=true;btn.setAttribute('aria-busy','true');
+  label.textContent='Připravuji PNG…';
+  try{
+    const opts=normalizedExportOptions(options);
+    const result=await createMapExportBlob(opts);
+    const filename=`avenier-mapa-${slugKey(opts.disease==='all'?'vsechny-destinace':opts.disease)}${opts.facet!=='all'?`-${slugKey(opts.facet)}`:'-vsechny-kategorie'}-${result.meta.fileDate}.png`;
+    const url=URL.createObjectURL(result.blob);
+    const link=document.createElement('a');link.href=url;link.download=filename;document.body.appendChild(link);link.click();link.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1500);
+    label.textContent='PNG staženo';
+    setTimeout(()=>document.getElementById('map-export-dialog')?.close(),450);
+  }catch(e){
+    console.error('Export mapy selhal:',e);
+    label.textContent='Export se nezdařil';
+  }finally{
+    btn.removeAttribute('aria-busy');
+    setTimeout(()=>{btn.disabled=false;label.textContent=original;},1800);
+  }
+}
+
+function setupMapExport(){
+  const btn=document.getElementById('map-export-png');
+  const dialog=document.getElementById('map-export-dialog');
+  const create=document.getElementById('map-export-create');
+  if(!btn||btn.dataset.bound==='1')return;
+  btn.dataset.bound='1';
+  btn.disabled=false;
+  btn.addEventListener('click',openMapExportDialog);
+  create?.addEventListener('click',()=>downloadMapPng(readMapExportOptions(),create));
+  dialog?.addEventListener('click',event=>{
+    if(event.target===dialog)dialog.close();
+  });
+  window.AvenierMapExport={createBlob:createMapExportBlob,download:downloadMapPng,metadata:exportMetadata};
 }
 
 function renderMapFilterLegend(){
@@ -1263,7 +1798,7 @@ function setDengueFacet(facet){
   activeDengueFacet=allowed.has(facet)?facet:'all';
   const hits=visibleDiseaseHits('dengue');
   const status=document.getElementById('filter-status');
-  if(status)status.textContent=`Horečka dengue: ${dengueFacetLabel(activeDengueFacet)} · ${hits.size} destinací${diseaseSourceLabel('dengue')}.`;
+  if(status)status.textContent=`Horečka dengue: ${dengueFacetLabel(activeDengueFacet)} · ${countDestinations(hits.size)}${diseaseSourceLabel('dengue')}.`;
   renderMapFilterLegend();
   renderMapLegend();
   repaintMap();
@@ -1277,7 +1812,7 @@ function setYellowFeverFacet(facet){
   activeYellowFeverFacet=allowed.has(facet)?facet:'all';
   const hits=visibleDiseaseHits('yellow-fever');
   const status=document.getElementById('filter-status');
-  if(status)status.textContent=`Žlutá zimnice: ${yellowFeverFacetLabel(activeYellowFeverFacet)} · ${hits.size} destinací${diseaseSourceLabel('yellow-fever')}.`;
+  if(status)status.textContent=`Žlutá zimnice: ${yellowFeverFacetLabel(activeYellowFeverFacet)} · ${countDestinations(hits.size)}${diseaseSourceLabel('yellow-fever')}.`;
   renderMapFilterLegend();
   renderMapLegend();
   repaintMap();
@@ -1291,7 +1826,7 @@ function diseaseSourceLabel(key){
   if(src==='hybrid-partial')return ' (zdroj: cestovní doporučení + CDC, neúplná data)';
   if(src==='hybrid')return ' (zdroj: cestovní doporučení + CDC)';
   if(src==='static-index')return ` (zdroj: ${staticDiseaseConfig(key)?.sourceLabel||'odborný index'})`;
-  if(src==='api-row')return ' (zdroj: přímé API značky)';
+  if(src==='api-row')return ' (zdroj: cestovní doporučení pro destinace)';
   if(src==='api-index')return ' (zdroj: pravidelně aktualizovaná cestovní doporučení)';
   if(src==='detail')return ' (zdroj: cestovní doporučení pro destinace)';
   if(src==='detail-partial')return ' (zdroj: cestovní doporučení, neúplná data)';
@@ -1373,7 +1908,7 @@ async function setDiseaseFilter(key){
   activeDisease=requestedDisease;
   if(loader)loader.classList.remove('on');
   const effectiveHits=effectiveDiseaseHits(activeDisease);
-  if(status)status.textContent=`${DISEASES[activeDisease].label}: zvýrazněno ${effectiveHits.size} destinací${diseaseSourceLabel(activeDisease)}.`;
+  if(status)status.textContent=`${DISEASES[activeDisease].label}: zvýrazněno ${countDestinations(effectiveHits.size)}${diseaseSourceLabel(activeDisease)}.`;
   renderMapFilterLegend();
   renderMapLegend();
   repaintMap();
@@ -1440,7 +1975,7 @@ function miniVaxList(data){
   const h=[
     miniGroupHtml('Povinná',pov,'p',2),
     miniGroupHtml('Základní',zak,'z',3),
-    miniGroupHtml('Doporučená',dop,'d',3)
+    miniGroupHtml('Další doporučení a rizika',dop,'d',3)
   ].join('');
   return h?`<div class="mi-vax-groups">${h}</div>`:'';
 }
@@ -1448,13 +1983,15 @@ function miniVaxList(data){
 function renderMapInfo(info,data=null,loading=false){
   const box=document.getElementById('map-info');
   if(!box||!info)return;
-  const url=info.www||`https://www.ockovacicentrum.cz/cz/${info.slug}`;
+  /* Odkaz na stránku destinace nabízíme jen tam, kde ji web opravdu má.
+     Skládaná adresa u destinací bez doporučení končila na chybové stránce. */
+  const url=info.www||'';
   const centerUrl='https://www.ockovacicentrum.cz/cz/kde-ockujeme';
   const {pov,zak,dop}=vaxArrays(data);
   const np=pov.length, nz=zak.length, nd=dop.length;
   const badges=data
-    ? `<span class="mi-badge p">${np} povinné</span><span class="mi-badge z">${nz} základní</span><span class="mi-badge d">${nd} doporučené</span>`
-    : (info.has?`<span class="mi-badge">Načítám doporučení…</span>`:`<span class="mi-badge">Bez detailních doporučení</span>`);
+    ? `<span class="mi-badge p">${countWithNoun(np,...COUNT_FORMS.required)}</span><span class="mi-badge z">${countWithNoun(nz,...COUNT_FORMS.basic)}</span><span class="mi-badge d">${countWithNoun(nd,...COUNT_FORMS.recommended)}</span>`
+    : (info.has?`<span class="mi-badge">Načítám doporučení…</span>`:`<span class="mi-badge">Bez cestovních doporučení</span>`);
   box.innerHTML=`<div class="mi-head">
     <div>
       <div class="mi-label">Vybraná destinace</div>
@@ -1464,11 +2001,11 @@ function renderMapInfo(info,data=null,loading=false){
   </div>
   <div class="mi-badges">${badges}</div>
   ${data?miniVaxList(data):''}
-  <div class="mi-text">${data?'Rychlý přehled nejčastějších doporučení a rizik vidíte přímo zde. Nejde vždy o kompletní výčet, další položky najdete v detailu níže.':'Po výběru destinace se detail zobrazí i v panelu pod mapou. Ve fullscreen režimu máte tento rychlý přehled přímo nad mapou.'}</div>
+  <div class="mi-text">${data?'Rychlý přehled nejčastějších doporučení a rizik vidíte přímo zde. Nejde vždy o kompletní výčet, další položky najdete v detailu níže.':'Podrobnosti k destinaci najdete v panelu pod mapou. S konkrétním plánem očkování vám poradí naši specialisté v očkovacích centrech Avenier.'}</div>
   ${loading?'<div class="mi-loading">Načítám detail destinace…</div>':''}
   <div class="mi-actions">
     <a class="mi-btn" href="${esc(centerUrl)}" target="_blank" rel="noopener noreferrer">Najít očkovací centrum</a>
-    <a class="mi-btn secondary" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Otevřít detail země</a>
+    ${url?`<a class="mi-btn secondary" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Otevřít detail destinace</a>`:''}
     <button class="mi-btn share" data-mi-action="share" type="button">Zkopírovat odkaz</button>
     <button class="mi-btn ghost" data-mi-action="scroll-detail" type="button">Zobrazit detail níže</button>
   </div>`;
@@ -1500,7 +2037,8 @@ function clearMapInfo(){
 /* ── Panel ── */
 function renderPanel(info){
   const wrap=document.getElementById('pnl');
-  const url=info.www||`https://www.ockovacicentrum.cz/cz/${info.slug}`;
+  /* Viz renderMapInfo – odkaz jen tam, kde stránka destinace existuje. */
+  const url=info.www||'';
   curSlug=info.slug;
   curInfo=info;
   const cacheState=getCachedDetailState(info.slug);
@@ -1518,14 +2056,14 @@ function renderPanel(info){
       </div>
     </div>
     <div class="div"></div>
-    <div id="vb"><p class="ml">${info.has?'Načítám vakcinační doporučení…':'Pro tuto destinaci zatím nejsou dostupná detailní doporučení.'}</p></div>
+    <div id="vb"><p class="ml">${info.has?'Načítám vakcinační doporučení…':'Pro tuto destinaci zatím nemáme cestovní doporučení.'}</p></div>
     <div class="cft">
       <div class="actionrow">
         <a class="bmore" href="https://www.ockovacicentrum.cz/cz/kde-ockujeme" target="_blank" rel="noopener noreferrer">
           Najít očkovací centrum
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         </a>
-        <a class="bmore secondary" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Zjistit více o zemi</a>
+        ${url?`<a class="bmore secondary" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Zjistit více o destinaci</a>`:''}
       </div>
       <span class="ftnote">ockovacicentrum.cz</span>
     </div>
@@ -1557,16 +2095,19 @@ function renderNoApiData(info){
   renderMapInfo(info,null,false);
   const vc=document.getElementById('vcc');
   const vb=document.getElementById('vb');
-  if(vc)vc.innerHTML='';
+  const external=externalDiseaseItems(info,null);
+  if(vc)vc.innerHTML=external.length?`<span class="vcb vcbx">${countWithNoun(external.length,...COUNT_FORMS.external)}</span>`:'';
   if(vb)vb.innerHTML=`<p class="cnote">
-    Pro destinaci <strong>${esc(info.name)}</strong> zatím nejsou dostupná detailní doporučení.
-  </p>`;
+    Pro destinaci <strong>${esc(info.name)}</strong> zatím nemáme cestovní doporučení.
+    Očkování a ochranu před nemocemi s vámi rádi projdeme osobně — naši specialisté
+    v očkovacích centrech Avenier poradí i s destinacemi, které v mapě nenajdete.
+  </p>${externalDiseaseSectionHtml(info,null)}${consultationNoteHtml()}`;
 }
 
 const VAX_HELP={
   povinne:'Očkování, které je nezbytné a současně musí být platné před vstupem do dané destinace či při tranzitu přes endemickou oblast.',
   zakladni:'Očkování, které odborné autority považují za jednoznačně doporučené pro danou destinaci.',
-  doporuceni:'Další nemoci a rizika, se kterými se můžete v dané destinaci setkat, a proti kterým se lze očkovat. Na základě destinace s vámi naši odborníci prokonzultují veškeré podrobnosti a případná rizika.'
+  doporuceni:'Další nemoci a zdravotní rizika, se kterými se můžete v destinaci setkat. Některým lze předcházet očkováním, u jiných je důležitá ochrana před hmyzem, bezpečné jídlo a voda nebo vhodné chování během cesty.'
 };
 
 function sectionTitle(cls,label,key){
@@ -1615,16 +2156,20 @@ function renderVax(data){
   const np=pov.length;
   const nz=zak.length;
   const nd=dop.length;
+  const external=externalDiseaseItems(curInfo,data);
 
   if(vc)vc.innerHTML=
-    (np?`<span class="vcb vcbp">${np} povinné</span>`:'')+
-    (nz?`<span class="vcb vcbz">${nz} základní</span>`:'')+
-    (nd?`<span class="vcb vcbd">${nd} doporučené</span>`:'');
+    `<span class="vcb vcbp">${countWithNoun(np,...COUNT_FORMS.required)}</span>`+
+    `<span class="vcb vcbz">${countWithNoun(nz,...COUNT_FORMS.basic)}</span>`+
+    `<span class="vcb vcbd">${countWithNoun(nd,...COUNT_FORMS.recommended)}</span>`+
+    (external.length?`<span class="vcb vcbx">${countWithNoun(external.length,...COUNT_FORMS.external)}</span>`:'');
 
   let h='';
-  h+=sectionHtml('p','Povinná očkování','povinne',pov,'Pro tuto destinaci nejsou v API uvedená povinná očkování.');
-  h+=sectionHtml('z','Základní očkování','zakladni',zak,'Pro tuto destinaci nejsou v API uvedená základní očkování.');
-  h+=sectionHtml('d','Další doporučení a rizika','doporuceni',dop,'Pro tuto destinaci nejsou v API uvedená další doporučení a rizika.');
+  h+=sectionHtml('p','Povinná očkování','povinne',pov,'Pro tuto destinaci nejsou uvedená žádná povinná očkování.');
+  h+=sectionHtml('z','Základní očkování','zakladni',zak,'Pro tuto destinaci nejsou uvedená žádná základní očkování.');
+  h+=sectionHtml('d','Další doporučení a rizika','doporuceni',dop,'Pro tuto destinaci nejsou uvedená žádná další doporučení ani rizika.');
+  h+=externalDiseaseSectionHtml(curInfo,data);
+  h+=consultationNoteHtml();
 
   vb.innerHTML=h;
   setupHelpButtons(vb);
@@ -2514,13 +3059,13 @@ async function initMapInternal(){
   const regionalSlugs=new Set(REGIONAL_DESTINATION_SLUGS.map(slugKey));
   const regionalCount=api.rows.filter(row=>regionalSlugs.has(slugKey(row.id||row.slug||''))).length;
   const stateLikeCount=Math.max(0,api.rows.length-regionalCount);
-  st.textContent=api.rows.length?`${api.rows.length} destinací`:'Data se nepodařilo načíst';
+  st.textContent=api.rows.length?countDestinations(api.rows.length):'Data se nepodařilo načíst';
   st.disabled=!api.rows.length;
   const coverageContent=document.getElementById('coverage-content');
   if(coverageContent&&api.rows.length){
-    coverageContent.innerHTML=`<strong class="coverage-total">${api.rows.length} destinací s doporučeními</strong>
+    coverageContent.innerHTML=`<strong class="coverage-total">${countDestinations(api.rows.length)} s doporučeními</strong>
       <p class="coverage-breakdown"><b>${stateLikeCount}</b> států nebo samostatně vedených zemí <span>+</span> <b>${regionalCount}</b> teritorií a regionů</p>
-      <p class="coverage-note">Mapa zobrazuje také některá menší nebo technická území bez vlastního detailu. Nejde o další státy a do počtu ${api.rows.length} destinací je nezahrnujeme.</p>`;
+      <p class="coverage-note">Mapa zobrazuje také některá menší území bez samostatných cestovních doporučení. Nejde o další státy a do počtu ${countDestinations(api.rows.length)} je nezahrnujeme.</p>`;
   }
   window.AvenierMapDebug={
     apiRows:api.rows,
@@ -2556,18 +3101,18 @@ async function initMapInternal(){
   setupFilters();
 
   /* Oceán (rect) */
-  oceanRect=sv.append('rect')
+  oceanRect=sv.append('rect').attr('class','map-ocean')
     .attr('x',0).attr('y',0).attr('width',W).attr('height',H).attr('fill',MC.ocean);
 
   /* Graticule */
-  graticulePath=sv.append('path').datum(d3.geoGraticule()()).attr('d',pg)
+  graticulePath=sv.append('path').attr('class','map-graticule').datum(d3.geoGraticule()()).attr('d',pg)
     .attr('fill','none').attr('stroke',MC.grat).attr('stroke-width',.5)
     .style('pointer-events','none');
 
   /* Zoom */
   zb=d3.zoom().scaleExtent([1,8]).extent([[0,0],[W,H]]).on('zoom',e=>{currentZoomK=e.transform.k;gv.attr('transform',e.transform);updateMarkerScale();});
   sv.call(zb);
-  gv=sv.append('g');
+  gv=sv.append('g').attr('class','map-viewport');
 
   const hl=document.getElementById('hlbl');
 
@@ -2600,7 +3145,7 @@ async function initMapInternal(){
     });
 
   /* Hranice */
-  bordersPath=gv.append('path')
+  bordersPath=gv.append('path').attr('class','map-borders')
     .datum(topojson.mesh(wt,wt.objects.countries,(a,b)=>a!==b&&!isSomaliaInternalBoundary(a,b)))
     .attr('d',pg).attr('fill','none').attr('stroke','rgba(255,255,255,0.40)').attr('stroke-width',.55).attr('stroke-linejoin','round').attr('vector-effect','non-scaling-stroke')
     .style('pointer-events','none');
@@ -2612,6 +3157,7 @@ async function initMapInternal(){
     .data(virtualDest.map(([id,info])=>({id,info})))
     .join('circle')
     .attr('class','dest-marker')
+    .attr('data-id',d=>d.id)
     .attr('cx',d=>prj(d.info.coords)[0])
     .attr('cy',d=>prj(d.info.coords)[1])
     .attr('r',MARKER_R.base/(currentZoomK||1))
@@ -2660,6 +3206,7 @@ async function initMapInternal(){
 
   /* Až po sestavení mapy – obnovení stavu vybírá destinaci i v mapové vrstvě. */
   await applyStateFromUrl();
+  setupMapExport();
 }
 
 initMap();

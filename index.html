@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Vakcinační mapa světa · Avenier</title>
-<link rel="stylesheet" href="assets/css/fonts.css?v=23.5">
-<link rel="stylesheet" href="assets/css/map.css?v=23.5">
+<link rel="stylesheet" href="assets/css/fonts.css?v=24.0">
+<link rel="stylesheet" href="assets/css/map.css?v=24.0">
 </head>
 <body class="oc-map-page">
 
@@ -27,6 +27,34 @@
   </div>
 </dialog>
 
+<dialog id="map-export-dialog" class="map-export-dialog" aria-labelledby="map-export-title">
+  <form method="dialog" class="map-export-dialog-card">
+    <button class="map-export-close" value="cancel" type="submit" aria-label="Zavřít nastavení exportu">×</button>
+    <div class="map-export-eyebrow">PNG · 3840 × 2160 px</div>
+    <h2 id="map-export-title">Připravit obrázek mapy</h2>
+    <p class="map-export-current">Aktuální filtr: <strong id="map-export-current-filter">Všechny destinace</strong></p>
+
+    <fieldset class="map-export-fieldset" id="map-export-facet-fieldset" hidden>
+      <legend>Kategorie v obrázku</legend>
+      <div class="map-export-choices" id="map-export-facet-options"></div>
+      <p class="map-export-help">Výchozí volba zahrne všechny barevné kategorie dané nemoci.</p>
+    </fieldset>
+
+    <fieldset class="map-export-fieldset">
+      <legend>Rozvržení obrázku</legend>
+      <div class="map-export-choices">
+        <label class="map-export-choice"><input type="radio" name="export-layout" value="map" checked><span><strong>Mapa přes celý obrázek</strong><small>Celý svět bez zoomu, menší texty a legenda přímo v mapě.</small></span></label>
+        <label class="map-export-choice"><input type="radio" name="export-layout" value="classic"><span><strong>Mapa s informační hlavičkou</strong><small>Větší název a samostatná plocha pro zdroj a legendu.</small></span></label>
+      </div>
+    </fieldset>
+
+    <div class="map-export-dialog-actions">
+      <button class="map-export-cancel" value="cancel" type="submit">Zrušit</button>
+      <button class="map-export-create" id="map-export-create" value="default" type="button">Vytvořit a stáhnout PNG</button>
+    </div>
+  </form>
+</dialog>
+
 <section class="info-hub info-hub-full" aria-label="Důležité upozornění">
   <div class="legal-alert">
     <strong>Důležité upozornění:</strong> Doporučení se může lišit podle délky pobytu, konkrétní oblasti, stylu cestování a zdravotního stavu cestovatele. Tato aplikace nenahrazuje vyšetření ani doporučení lékaře a slouží pouze jako orientační přehled.
@@ -36,7 +64,7 @@
 <div class="sw">
   <div class="si">
     <span class="sico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="6.5"></circle><path d="m16 16 4.2 4.2"></path></svg></span>
-    <input id="av-search" type="text" placeholder="Hledat zemi… (např. Vietnam, Keňa, Brazílie)" autocomplete="off" aria-label="Vyhledat zemi">
+    <input id="av-search" type="text" placeholder="Hledat destinaci… (např. Vietnam, Keňa, Bali)" autocomplete="off" aria-label="Vyhledat destinaci">
     <button class="sclr" id="av-clr" aria-label="Vymazat">&#215;</button>
   </div>
   <div id="av-dd" role="listbox"></div>
@@ -46,7 +74,7 @@
   <div class="fbox">
     <div class="flbl-row">
       <span class="flbl">Filtr podle nemoci</span>
-      <span class="flbl-hint">Klikni na i pro vysvětlení</span>
+      <span class="flbl-hint">Klikněte na i pro vysvětlení</span>
     </div>
     <details class="finfo">
       <summary aria-label="Informace k filtru" title="Informace k filtru">i</summary>
@@ -55,7 +83,7 @@
     <button class="fbtn reset active" data-disease="all" type="button">Všechny destinace</button>
     <span class="dctrl"><button class="fbtn" data-disease="yellow-fever" type="button">Žlutá zimnice</button><a class="dlink" href="https://www.ockovacicentrum.cz/cz/zluta-zimnice" target="_blank" rel="noopener noreferrer" aria-label="Otevřít detail nemoci: Žlutá zimnice">↗</a></span>
     <span class="dctrl"><button class="fbtn" data-disease="typhoid" type="button">Břišní tyfus</button><a class="dlink" href="https://www.ockovacicentrum.cz/cz/brisni-tyfus" target="_blank" rel="noopener noreferrer" aria-label="Otevřít detail nemoci: Břišní tyfus">↗</a></span>
-    <span class="dctrl"><button class="fbtn" data-disease="dengue" type="button">Horečka Dengue</button><a class="dlink" href="https://www.ockovacicentrum.cz/cz/horecka-dengue" target="_blank" rel="noopener noreferrer" aria-label="Otevřít detail nemoci: Horečka Dengue">↗</a></span>
+    <span class="dctrl"><button class="fbtn" data-disease="dengue" type="button">Horečka dengue</button><a class="dlink" href="https://www.ockovacicentrum.cz/cz/horecka-dengue" target="_blank" rel="noopener noreferrer" aria-label="Otevřít detail nemoci: horečka dengue">↗</a></span>
     <span class="dctrl"><button class="fbtn" data-disease="chikungunya" type="button">Chikungunya</button><a class="dlink" href="https://www.ockovacicentrum.cz/cz/chikungunya" target="_blank" rel="noopener noreferrer" aria-label="Otevřít detail nemoci: Chikungunya">↗</a></span>
     <span class="dctrl"><button class="fbtn" data-disease="zika" type="button">Zika</button><a class="dlink" href="https://www.ockovacicentrum.cz/cz/zika" target="_blank" rel="noopener noreferrer" aria-label="Otevřít detail nemoci: Zika">↗</a></span>
     <span class="dctrl"><button class="fbtn" data-disease="rabies" type="button">Vzteklina</button><a class="dlink" href="https://www.ockovacicentrum.cz/cz/vzteklina" target="_blank" rel="noopener noreferrer" aria-label="Otevřít detail nemoci: Vzteklina">↗</a></span>
@@ -94,10 +122,11 @@
   <div id="mw">
     <svg id="av-map"></svg>
     <div id="hlbl" aria-hidden="true"></div>
-    <div id="hint">Klikněte na stát v mapě nebo vyhledejte destinaci</div>
+    <div id="hint">Klikněte na destinaci v mapě nebo ji vyhledejte</div>
     <div id="map-filter-legend" class="map-filter-legend" hidden></div>
     <div id="map-info" class="map-info" aria-live="polite"></div>
     <div id="zc">
+      <button class="zbtn sm map-export-btn" id="map-export-png" type="button" disabled title="Stáhnout mapu jako PNG" aria-label="Stáhnout mapu jako PNG"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11"></path><path d="m7.5 10 4.5 4.5 4.5-4.5"></path><path d="M5 20h14"></path></svg></button>
       <button class="zbtn" id="zi" title="Přiblížit">+</button>
       <button class="zbtn" id="zo" title="Oddálit">−</button>
       <button class="zbtn sm" id="zr" title="Vrátit mapu na výchozí pohled" aria-label="Vrátit mapu na výchozí pohled"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 10.5 12 4.3l7.5 6.2"></path><path d="M6.8 9.1v10h10.4v-10"></path><path d="M10 19.1v-5.2h4v5.2"></path></svg></button>
@@ -110,9 +139,9 @@
 <section class="admin-panel" id="admin-panel" hidden></section>
 </main>
 
-<script src="assets/vendor/d3.min.js?v=23.5"></script>
-<script src="assets/vendor/topojson.min.js?v=23.5"></script>
-<script src="assets/js/config.js?v=23.5"></script>
-<script src="assets/js/app.js?v=23.5"></script>
+<script src="assets/vendor/d3.min.js?v=24.0"></script>
+<script src="assets/vendor/topojson.min.js?v=24.0"></script>
+<script src="assets/js/config.js?v=24.0"></script>
+<script src="assets/js/app.js?v=24.0"></script>
 </body>
 </html>

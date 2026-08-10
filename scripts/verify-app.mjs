@@ -93,10 +93,44 @@ assert(app.includes('function facetTooltip')&&app.includes('function facetGlossa
 /* Endpoint v konstantě APIS je v pořádku; hlídáme jen odkazy a texty pro uživatele. */
 assert(!app.includes('API Očkovacího centra'),'Rozhraní znovu popisuje zdroj jako API místo stránky o nemoci.');
 assert(!/href="[^"]*api\/country/.test(app),'Rozhraní znovu odkazuje uživatele přímo na API.');
+assert(!app.includes('zdroj: přímé API značky'),'Rozhraní stále používá technické označení přímého API.');
+assert(!app.includes('po 90 sekundách'),'Rozhraní stále zveřejňuje interní dobu opakovaného načtení.');
+
+/* České tvary a jednotné názvosloví v nejviditelnějších počítadlech. */
+assert(app.includes("required:['povinné očkování','povinná očkování','povinných očkování']"),'Chybí české tvary počtu povinných očkování.');
+assert(app.includes("recommended:['další doporučení','další doporučení','dalších doporučení']"),'Chybí české tvary počtu dalších doporučení.');
+assert(!app.includes("meta.count===1?'destinace':'destinací'"),'Export stále rozlišuje jen jednotné a množné číslo.');
+assert(html.includes('Hledat destinaci')&&!html.includes('Hledat zemi'),'Vyhledávání nepoužívá jednotný pojem destinace.');
+assert(html.includes('Klikněte na i pro vysvětlení')&&!html.includes('Klikni na i'),'Rozhraní stále na jediném místě tyká.');
+assert(html.includes('Horečka dengue')&&!html.includes('Horečka Dengue'),'Název horečky dengue nemá český pravopis.');
+assert(app.includes("miniGroupHtml('Další doporučení a rizika'")&&app.includes("sectionHtml('d','Další doporučení a rizika'"),'Třetí kategorie doporučení nemá jednotný název.');
+
+/* Externí odborné indexy musí být v detailu viditelně oddělené od doporučení
+   pro destinaci a odkazy na destinaci se nesmí skládat naslepo. */
+assert(app.includes('const EXTERNAL_DETAIL_DISEASES=')&&app.includes('function externalDiseaseSectionHtml'),'V detailu chybí nemoci z doplňujících odborných zdrojů.');
+assert(app.includes('Doplňující odborné zdroje')&&app.includes('Zdroj: ${esc(item.sourceLabel)}'),'Externí nemoci nemají srozumitelné označení a zdroj.');
+assert(app.includes("const url=info.www||''")&&!/ockovacicentrum\.cz\/cz\/\$\{[^}]*slug/.test(app),'Odkaz na destinaci se znovu skládá i bez existující cílové stránky.');
 
 /* Sdílení stavu přes URL. */
 assert(/URL_PARAM=\{disease:'filtr',facet:'kategorie',destination:'zeme'\}/.test(app),'Chybí parametry pro sdílení stavu v URL.');
 assert(app.includes('function applyStateFromUrl')&&app.includes('function updateUrlState'),'Chybí obnovení nebo zápis stavu do URL.');
 assert(app.includes("data-mi-action=\"share\"")&&app.includes('function copyShareLink'),'Chybí tlačítko pro zkopírování odkazu.');
+
+/* Opakovatelný 4K export aktuálního filtru. */
+assert(html.includes('id="map-export-png"'),'V rozhraní chybí tlačítko pro export PNG.');
+assert(app.includes('function createMapExportBlob')&&app.includes('function downloadMapPng'),'Chybí vytvoření nebo stažení exportu PNG.');
+assert(app.includes('window.AvenierMapExport'),'Export není dostupný pro automatizovaný test.');
+assert(html.includes('id="map-export-dialog"')&&html.includes('name="export-layout"'),'Chybí dialog nebo volba rozvržení exportu.');
+assert(html.includes('value="map" checked'),'Výchozí export nemá dominantní mapové rozvržení.');
+assert(/id="zc"[\s\S]*id="map-export-png"[\s\S]*id="zi"/.test(html),'Ikona exportu není ve svislém ovládání mapy nad přiblížením.');
+assert(app.includes("facet:dialog?.querySelector('input[name=\"export-facet\"]:checked')?.value||'all'"),'Výchozí export nezahrnuje všechny kategorie filtru.');
+assert(app.includes("height-(fullMapLayout?220:54)")&&app.includes("{type:'Sphere'}"),'Export negarantuje zobrazení celého světa bez ořezu a prostoru pro zdroj.');
+assert(app.includes("label:'Ostatní destinace'")&&!/function exportLegendItems[\s\S]{0,2500}Bez dostupného detailu/.test(app),'Legenda exportu používá technické nebo nadbytečné označení.');
+assert(app.includes('function drawGlassPanel')&&app.includes('sourceWidth'),'Dominantní export nemá kompaktní skleněné panely.');
+assert(app.includes('drawGlassPanel(ctx,128,104,570,500,28)'),'Hlavní informační panel dominantního exportu nemá zkrácenou šířku.');
+assert(!app.includes('drawGlassPanel(ctx,3030,104'),'Logo dominantního exportu má stále podkladový panel.');
+assert(/map-export-dialog\[open\][^{]*\{[^}]*place-items:center/.test(await readFile(resolve(root,'assets/css/map.css'),'utf8')),'Dialog exportu není vycentrovaný.');
+const exportLogo=await stat(resolve(root,'assets/img/avenier-logo.png')).catch(()=>null);
+assert(exportLogo?.isFile()&&exportLogo.size>10000,'Chybí použitelné logo Avenier pro export.');
 
 console.log(`Kontrola v pořádku: ${index.destinationCount} destinací, ${requiredDiseases.length} nemocí, verze ${versions[0]}, ${vendored.length} lokálních závislostí.`);
