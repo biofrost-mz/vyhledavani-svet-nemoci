@@ -135,7 +135,8 @@ assert(app.includes('dy/focus.availableHeight')&&app.includes('translate(focus.x
 assert(app.includes('function combinedHits')&&app.includes('function toggleExtraDisease'),'Chybí logika kombinace filtrů.');
 assert(app.includes('function matchesActiveFilter'),'Rozhodování o shodě s filtrem nemá jediné místo.');
 assert(html.includes('id="filter-combine"')&&html.includes('id="filter-combo"'),'V rozhraní chybí ovládání kombinace filtrů.');
-assert(app.includes("const COMBO_COLOR="),'Kombinace nemá vlastní barvu v mapě.');
+assert(app.includes('const COMBO_PALETTE=')&&app.includes('function ensureStripePattern'),'Kombinace nemá barvy nemocí ani pruhy pro překryv.');
+assert(app.includes('function combinationIndex')&&app.includes('function comboOverlapHits'),'Kombinace neeviduje, které nemoci se destinace týkají.');
 assert(app.includes('opts.combo')&&app.includes('combinationLabel()'),'Export nezohledňuje kombinaci filtrů.');
 
 /* Sdílení stavu přes URL. */

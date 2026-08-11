@@ -249,8 +249,16 @@ function updateMarkerScale(){
 
 /* Kombinace má vlastní barvu. Barvy jednotlivých nemocí by u průniku nedávaly
    smysl – destinace odpovídá všem vybraným najednou, ne jedné z nich. */
-const COMBO_COLOR='#CA005D';
-const COMBO_HOVER='#a9004e';
+/* Kombinace ukazuje sjednocení: destinaci, které se týká kterákoli z vybraných
+   nemocí. Každá nemoc má v kombinaci vlastní barvu podle pořadí výběru;
+   destinace, kterých se týká víc nemocí zároveň, dostanou pruhy z jejich barev.
+   Průnik tím z pohledu nemizí – je to právě ta pruhovaná skupina. */
+const COMBO_PALETTE=['#78BE20','#CA005D','#8A5CF6','#E8730C'];
+const COMBO_PALETTE_HOVER=['#5fa018','#a9004e','#7343f0','#c65f05'];
+const COMBO_MAX=COMBO_PALETTE.length;
+
+function comboSlotColor(index){return COMBO_PALETTE[index%COMBO_PALETTE.length];}
+function comboSlotHover(index){return COMBO_PALETTE_HOVER[index%COMBO_PALETTE_HOVER.length];}
 
 /* ── Trasa přes více destinací ──
    Trasa je vrstva nad filtrem, ne jeho náhrada. Proto se nekreslí výplní
@@ -282,27 +290,104 @@ function isCombination(){
   return extraDiseases.length>0;
 }
 
-/* Průnik napříč vybranými nemocemi. Podfiltry (žlutá zimnice, dengue) se
-   v kombinaci neuplatňují – nemoc do průniku vstupuje celá. */
+/* Sjednocení napříč vybranými nemocemi. Podfiltry (žlutá zimnice, dengue) se
+   v kombinaci neuplatňují – nemoc do výběru vstupuje celá. */
 function combinedHits(){
+  return combinationIndex().union;
+}
+
+/* Ke každé destinaci si držíme, které z vybraných nemocí se jí týkají.
+   Z toho plyne barva v mapě i rozdělení výsledků do skupin. */
+function combinationIndex(){
   if(combinedHitsCache)return combinedHitsCache;
   const keys=activeDiseaseKeys();
-  if(!keys.length)return new Set();
-  let result=null;
-  keys.forEach(key=>{
-    const hits=effectiveDiseaseHits(key);
-    if(result===null){
-      result=new Set(hits);
-      return;
-    }
-    result=new Set([...result].filter(id=>hits.has(id)));
+  const union=new Set();
+  const slotsById=new Map();
+  keys.forEach((key,slot)=>{
+    effectiveDiseaseHits(key).forEach(rawId=>{
+      const id=normId(rawId);
+      union.add(id);
+      const slots=slotsById.get(id)||[];
+      slots.push(slot);
+      slotsById.set(id,slots);
+    });
   });
-  combinedHitsCache=result||new Set();
+  combinedHitsCache={keys,union,slotsById};
   return combinedHitsCache;
+}
+
+function comboSlotsFor(id){
+  return combinationIndex().slotsById.get(normId(id))||[];
+}
+
+/* Destinace, kterých se týkají všechny vybrané nemoci – dřívější chování
+   kombinace. Zůstává dostupné jako jedna ze skupin výsledků. */
+function comboOverlapHits(){
+  const {keys,slotsById}=combinationIndex();
+  const all=new Set();
+  slotsById.forEach((slots,id)=>{if(slots.length===keys.length)all.add(id);});
+  return all;
 }
 
 function invalidateCombinedHits(){
   combinedHitsCache=null;
+}
+
+/* Pruhy pro destinace s více vybranými nemocemi. Vzor se vytvoří jednou pro
+   každou kombinaci barev, která se v mapě opravdu objeví. */
+const stripePatterns=new Set();
+const SVG_NS='http://www.w3.org/2000/svg';
+const STRIPE_BAND=3.4;
+
+function stripePatternId(slots){return `av-stripe-${slots.join('-')}`;}
+
+function ensureStripePattern(slots){
+  const id=stripePatternId(slots);
+  if(stripePatterns.has(id))return `url(#${id})`;
+  const svgNode=document.getElementById('av-map');
+  if(!svgNode)return comboSlotColor(slots[0]);
+  let defs=svgNode.querySelector('defs');
+  if(!defs){
+    defs=document.createElementNS(SVG_NS,'defs');
+    svgNode.insertBefore(defs,svgNode.firstChild);
+  }
+  const size=STRIPE_BAND*slots.length;
+  const pattern=document.createElementNS(SVG_NS,'pattern');
+  pattern.setAttribute('id',id);
+  pattern.setAttribute('width',size);
+  pattern.setAttribute('height',size);
+  pattern.setAttribute('patternUnits','userSpaceOnUse');
+  pattern.setAttribute('patternTransform','rotate(45)');
+  slots.forEach((slot,i)=>{
+    const rect=document.createElementNS(SVG_NS,'rect');
+    rect.setAttribute('x',i*STRIPE_BAND);
+    rect.setAttribute('y',0);
+    rect.setAttribute('width',STRIPE_BAND+0.15);
+    rect.setAttribute('height',size);
+    rect.setAttribute('fill',comboSlotColor(slot));
+    pattern.appendChild(rect);
+  });
+  defs.appendChild(pattern);
+  stripePatterns.add(id);
+  return `url(#${id})`;
+}
+
+/* Vzory jsou v souřadnicích zoomovatelné vrstvy, takže bez korekce by se
+   při přiblížení roztáhly. Držíme je v konstantní šířce na obrazovce. */
+function updateStripeScale(){
+  const svgNode=document.getElementById('av-map');
+  if(!svgNode)return;
+  const k=currentZoomK||1;
+  svgNode.querySelectorAll('pattern[id^="av-stripe-"]').forEach(pattern=>{
+    pattern.setAttribute('patternTransform',`rotate(45) scale(${1/k})`);
+  });
+}
+
+function comboFillForId(id){
+  const slots=comboSlotsFor(id);
+  if(!slots.length)return MC.dim;
+  if(slots.length===1)return comboSlotColor(slots[0]);
+  return ensureStripePattern(slots);
 }
 
 /* Jediné místo, kde se rozhoduje, jestli destinace odpovídá aktuálnímu filtru. */
@@ -317,7 +402,7 @@ function colorForId(id){
   const info=FI.get(nid);
   if(!info?.has)return MC.none;
   if(activeDisease && activeDisease!=='all'){
-    if(isCombination())return matchesActiveFilter(nid)?COMBO_COLOR:MC.dim;
+    if(isCombination())return comboFillForId(nid);
     const hits=diseaseIndex.get(activeDisease);
     if(!hits)return MC.dim;
     if(!diseaseContainsMapId(activeDisease,nid))return MC.dim;
@@ -330,7 +415,11 @@ function colorForId(id){
 function hoverColorForId(id){
   const nid=normId(id);
   if(activeDisease && activeDisease!=='all'){
-    if(isCombination())return matchesActiveFilter(nid)?COMBO_HOVER:MC.dim;
+    if(isCombination()){
+      const slots=comboSlotsFor(nid);
+      if(!slots.length)return MC.dim;
+      return slots.length===1?comboSlotHover(slots[0]):ensureStripePattern(slots);
+    }
     if(!diseaseIndex.has(activeDisease))return MC.dim;
     if(!diseaseContainsMapId(activeDisease,nid))return MC.dim;
     const facet=diseaseFacetForMapId(activeDisease,nid);
@@ -1061,7 +1150,10 @@ function renderFilterResults(){
   box.classList.add('open');
 
   const chipFor=({id,info})=>{
-    if(combo)return `<button class="fr-chip combo" type="button" data-fr-country="${esc(id)}">${esc(info.name)}</button>`;
+    if(combo){
+      const slots=comboSlotsFor(id);
+      return `<button class="fr-chip combo" type="button" data-fr-country="${esc(id)}" title="${esc(comboGroupLabel(slots))}"><span class="fr-chip-swatch" style="${esc(comboSwatchStyle(slots))}" aria-hidden="true"></span>${esc(info.name)}</button>`;
+    }
     const facet=diseaseFacetForId(activeDisease,id);
     const facetLabel=facet==='both'?'místní riziko a vstupní podmínka':facet==='entry'?'vstupní podmínka':facet==='risk'?'místní riziko žluté zimnice':facet==='endemic'?'endemický výskyt dengue':facet==='general'?'obecné doporučení k dengue':'';
     const facetClass=activeDisease==='yellow-fever'&&facet?` yf-${facet}`:activeDisease==='dengue'&&facet?` dg-${facet}`:'';
@@ -1073,11 +1165,13 @@ function renderFilterResults(){
   const sourceNote=combo?combinationSourceNote():(isYellowFever||isDengue?'':filterSourceNote(activeDisease,hits.length));
   const facetOverview=isYellowFever?yellowFeverOverview():isDengue?dengueOverview():'';
   const emptyText=combo
-    ? 'Žádná destinace neodpovídá všem vybraným nemocem zároveň. Zkuste některou z kombinace odebrat.'
+    ? 'Žádná z vybraných nemocí se zatím neváže k žádné destinaci.'
     : 'Pro tento filtr se zatím nepodařilo najít žádnou destinaci. Může jít o riziko, které zatím není u destinací jednotně vedené.';
   const resultsContent=isYellowFever
     ? yellowFeverColumns(hits,chipFor)
-    : (hits.length?`<div class="fr-grid">${chips}</div>`:`<div class="fr-empty">${esc(emptyText)}</div>`);
+    : combo
+      ? (hits.length?comboColumns(hits,chipFor):`<div class="fr-empty">${esc(emptyText)}</div>`)
+      : (hits.length?`<div class="fr-grid">${chips}</div>`:`<div class="fr-empty">${esc(emptyText)}</div>`);
   const mismatch=filterDestinationMismatch?`<aside class="fr-mismatch" role="status">
     <div><strong>${esc(filterDestinationMismatch.name)} neodpovídá aktuálnímu filtru.</strong><span>Proto jsme mapu na tuto destinaci nepřiblížili. Můžete pokračovat ve filtru, nebo jej zrušit a otevřít doporučení pro destinaci.</span></div>
     <button type="button" data-show-mismatch-country="${esc(filterDestinationMismatch.id)}">Zrušit filtr a otevřít destinaci</button>
@@ -1085,8 +1179,9 @@ function renderFilterResults(){
 
   box.innerHTML=`<div class="fr-head">
     <div>
-      <div class="fr-title">${combo?`${esc(combinationLabel())} – destinace se všemi vybranými riziky`:`${esc(cfg?.label||'Vybraný filtr')}${isYellowFever&&activeYellowFeverFacet!=='all'?` – ${esc(yellowFeverFacetLabel(activeYellowFeverFacet))}`:isDengue&&activeDengueFacet!=='all'?` – ${esc(dengueFacetLabel(activeDengueFacet))}`:' – destinace v aktuálním filtru'}`}</div>
+      <div class="fr-title">${combo?`${esc(combinationLabel())} – destinace s některou z vybraných nemocí`:`${esc(cfg?.label||'Vybraný filtr')}${isYellowFever&&activeYellowFeverFacet!=='all'?` – ${esc(yellowFeverFacetLabel(activeYellowFeverFacet))}`:isDengue&&activeDengueFacet!=='all'?` – ${esc(dengueFacetLabel(activeDengueFacet))}`:' – destinace v aktuálním filtru'}`}</div>
       <div class="fr-count"><strong>${hits.length}</strong> ${esc(destinationsWord(hits.length))}</div>
+      ${combo?`<div class="fr-combo-breakdown">${esc(comboBreakdownText())}</div>`:''}
       <div class="fr-sub">Kliknutím na destinaci otevřete detail v mapě. Další související nemoci a rizika najdete po otevření detailu destinace.</div>
     </div>
   </div>
@@ -1309,6 +1404,70 @@ function yellowFeverColumns(hits,chipFor){
 
 /* U kombinace nemá smysl opakovat popis jednoho filtru – uživatel potřebuje
    vědět, že jde o průnik, a odkud pochází data pro každou nemoc zvlášť. */
+/* CSS podoba pruhů pro legendu, čipy a vysvětlivky. */
+function comboSwatchStyle(slots){
+  if(!slots.length)return `background:${MC.dim}`;
+  if(slots.length===1)return `background:${comboSlotColor(slots[0])}`;
+  const band=5;
+  const stops=slots.map((slot,i)=>`${comboSlotColor(slot)} ${i*band}px ${(i+1)*band}px`).join(',');
+  return `background:repeating-linear-gradient(45deg,${stops})`;
+}
+
+function comboGroupLabel(slots){
+  const {keys}=combinationIndex();
+  return slots.map(slot=>DISEASES[keys[slot]]?.label||keys[slot]).join(' + ');
+}
+
+/* Skupiny řadíme od nejvíc překrývajících se – tam je informace nejhustší. */
+function comboGroups(hits){
+  const groups=new Map();
+  hits.forEach(hit=>{
+    const slots=comboSlotsFor(hit.id);
+    if(!slots.length)return;
+    const key=slots.join('-');
+    if(!groups.has(key))groups.set(key,{slots,items:[]});
+    groups.get(key).items.push(hit);
+  });
+  return [...groups.values()].sort((a,b)=>{
+    if(b.slots.length!==a.slots.length)return b.slots.length-a.slots.length;
+    if(a.slots[0]!==b.slots[0])return a.slots[0]-b.slots[0];
+    return a.slots.join('-').localeCompare(b.slots.join('-'));
+  });
+}
+
+function comboColumns(hits,chipFor){
+  const groups=comboGroups(hits);
+  if(!groups.length)return '';
+  const {keys}=combinationIndex();
+  return `<div class="fr-combo-groups">${groups.map(group=>{
+    const all=group.slots.length===keys.length&&keys.length>1;
+    return `<section class="fr-combo-group${all?' is-all':''}">
+      <header>
+        <span class="fr-combo-swatch" style="${esc(comboSwatchStyle(group.slots))}" aria-hidden="true"></span>
+        <div>
+          <h3>${esc(comboGroupLabel(group.slots))}</h3>
+          <p>${esc(group.slots.length===1?'Týká se jen této nemoci.':all?'Týkají se všechny vybrané nemoci zároveň.':'Týká se více vybraných nemocí zároveň.')}</p>
+        </div>
+        <strong>${group.items.length}</strong>
+      </header>
+      <div class="fr-combo-list">${group.items.map(chipFor).join('')}</div>
+    </section>`;
+  }).join('')}</div>`;
+}
+
+function comboBreakdownText(){
+  const {keys,slotsById}=combinationIndex();
+  const only=keys.map(()=>0);
+  let overlap=0;
+  slotsById.forEach(slots=>{
+    if(slots.length===1)only[slots[0]]++;
+    else overlap++;
+  });
+  const parts=keys.map((key,slot)=>`jen ${DISEASES[key]?.label||key}: ${only[slot]}`);
+  if(overlap)parts.push(`více nemocí zároveň: ${overlap}`);
+  return parts.join(' · ');
+}
+
 function combinationSourceNote(){
   const keys=activeDiseaseKeys();
   const sources=keys.map(key=>{
@@ -1318,10 +1477,18 @@ function combinationSourceNote(){
     const url=staticCfg?.sourceUrl||cfg?.url;
     return `<li><strong>${esc(cfg?.label||key)}</strong> — ${url?`<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(label)}</a>`:esc(label)}</li>`;
   }).join('');
+  const legend=activeDiseaseKeys().map((key,slot)=>
+    `<span class="fr-combo-key"><i style="${esc(comboSwatchStyle([slot]))}"></i>${esc(DISEASES[key]?.label||key)}</span>`
+  ).join('');
+  const overlapSwatch=activeDiseaseKeys().length>1
+    ? `<span class="fr-combo-key"><i style="${esc(comboSwatchStyle(activeDiseaseKeys().map((_,i)=>i)))}"></i>více nemocí zároveň</span>`
+    : '';
   return `<div class="fr-source-note fr-combo-note">
-    <strong>Co na mapě vidíte:</strong> Zvýrazněné jsou pouze destinace, kterých se týkají
-    <strong>všechny vybrané nemoci zároveň</strong>. Destinace, kde platí jen některá z nich, zůstávají potlačené.
-    U kombinace se nepoužívají podrobnější kategorie žluté zimnice ani horečky dengue — každá nemoc do průniku vstupuje celá.
+    <strong>Co na mapě vidíte:</strong> Zvýrazněné jsou destinace, kterých se týká
+    <strong>kterákoli z vybraných nemocí</strong>. Každá nemoc má svou barvu; destinace, kterých se týká víc nemocí
+    zároveň, jsou pruhované z jejich barev.
+    U kombinace se nepoužívají podrobnější kategorie žluté zimnice ani horečky dengue — každá nemoc do výběru vstupuje celá.
+    <span class="fr-combo-keys">${legend}${overlapSwatch}</span>
     <ul class="fr-combo-sources">${sources}</ul>
   </div>`;
 }
@@ -1376,7 +1543,19 @@ function mapLegendItems(){
   const noMatch={color:MC.dim,label:'Neodpovídá filtru',mark:'×'};
 
   if(isCombination()){
-    return [{color:COMBO_COLOR,label:'Odpovídá všem vybraným nemocem',mark:'✓'},noMatch,noData,selected];
+    const keys=activeDiseaseKeys();
+    const items=keys.map((key,slot)=>({
+      color:comboSlotColor(slot),
+      label:DISEASES[key]?.label||key,
+      mark:String(slot+1)
+    }));
+    if(keys.length>1)items.push({
+      stripes:keys.map((_,i)=>i),
+      color:comboSlotColor(0),
+      label:'Více vybraných nemocí zároveň',
+      mark:'≡'
+    });
+    return [...items,noMatch,noData,selected];
   }
 
   if(activeDisease==='yellow-fever'){
@@ -1405,7 +1584,10 @@ function renderMapLegend(){
   const box=document.getElementById('map-legend');
   if(!box)return;
   const items=mapLegendItems()
-    .map(it=>`<div class="li"><span class="ld" style="background:${esc(it.color)}" aria-hidden="true">${esc(it.mark||'')}</span><span>${esc(it.label)}</span></div>`)
+    .map(it=>{
+      const style=it.stripes?comboSwatchStyle(it.stripes):`background:${it.color}`;
+      return `<div class="li"><span class="ld" style="${esc(style)}" aria-hidden="true">${esc(it.mark||'')}</span><span>${esc(it.label)}</span></div>`;
+    })
     .join('');
   box.innerHTML=`${items}<span class="lh">Táhnutím pohyb · kolečkem zoom</span>`;
 }
@@ -1447,14 +1629,42 @@ function exportDiseaseHits(options={}){
   return new Set([...hits].filter(id=>diseaseFacetForId(opts.disease,id)===opts.facet));
 }
 
-function exportColorForId(id,options={}){
+/* Pruhy na plátně: dlaždice se předkreslí jednou a použije se jako výplň. */
+const exportStripeCache=new Map();
+
+function exportStripePattern(ctx,slots){
+  const key=slots.join('-');
+  if(exportStripeCache.has(key))return exportStripeCache.get(key);
+  const band=22;
+  const size=band*slots.length;
+  const tile=document.createElement('canvas');
+  tile.width=size;tile.height=size;
+  const tctx=tile.getContext('2d');
+  slots.forEach((slot,i)=>{
+    tctx.fillStyle=comboSlotColor(slot);
+    tctx.fillRect(i*band,0,band+0.5,size);
+  });
+  const pattern=ctx.createPattern(tile,'repeat');
+  if(pattern?.setTransform&&typeof DOMMatrix!=='undefined'){
+    pattern.setTransform(new DOMMatrix().rotate(45));
+  }
+  exportStripeCache.set(key,pattern);
+  return pattern;
+}
+
+function exportColorForId(id,options={},ctx=null){
   const opts=normalizedExportOptions(options);
   const nid=normId(id);
   const info=FI.get(nid);
   if(!info?.has)return MC.none;
   if(opts.disease==='all')return MC.has;
   if(!exportDiseaseHits(opts).has(nid))return MC.dim;
-  if(opts.combo)return COMBO_COLOR;
+  if(opts.combo){
+    const slots=comboSlotsFor(nid);
+    if(!slots.length)return MC.dim;
+    if(slots.length===1)return comboSlotColor(slots[0]);
+    return ctx?exportStripePattern(ctx,slots):comboSlotColor(slots[0]);
+  }
   const facet=diseaseFacetForId(opts.disease,nid);
   return facet?DISEASES[opts.disease]?.facetColors?.[facet]||DISEASES[opts.disease].color:DISEASES[opts.disease].color;
 }
@@ -1467,7 +1677,12 @@ function exportLegendItems(options={}){
   const cfg=DISEASES[opts.disease];
   const items=[];
   if(opts.combo){
-    items.push({color:COMBO_COLOR,label:'Odpovídá všem vybraným nemocem',mark:'✓'});
+    opts.diseases.forEach((key,slot)=>{
+      items.push({color:comboSlotColor(slot),label:DISEASES[key]?.label||key,mark:String(slot+1)});
+    });
+    if(opts.diseases.length>1){
+      items.push({stripes:opts.diseases.map((_,i)=>i),color:comboSlotColor(0),label:'Více nemocí zároveň',mark:'≡'});
+    }
     items.push({color:MC.dim,label:'Ostatní destinace',mark:'×'});
     return items;
   }
@@ -1587,11 +1802,23 @@ function buildExportMapSvg(width,height,options={}){
     if(!info?.has)return MC.none;
     if(opts.disease==='all')return MC.has;
     if(!exportHits.has(nid))return MC.dim;
+    if(opts.combo){
+      const slots=comboSlotsFor(nid);
+      if(!slots.length)return MC.dim;
+      /* Vzor se vytvoří v živé mapě a klonuje se i s ní. */
+      return slots.length===1?comboSlotColor(slots[0]):ensureStripePattern(slots);
+    }
     const facet=diseaseFacetForId(opts.disease,nid);
     return facet?DISEASES[opts.disease]?.facetColors?.[facet]||DISEASES[opts.disease].color:DISEASES[opts.disease].color;
   };
   const clone=sv.node().cloneNode(true);
   clone.setAttribute('xmlns','http://www.w3.org/2000/svg');
+  /* Pruhy v exportu nejsou ovlivněné zoomem obrazovky; přizpůsobíme je
+     velikosti výsledného obrázku, aby zůstaly stejně husté. */
+  const stripeScale=Math.max(1,width/(W||width));
+  clone.querySelectorAll('pattern[id^="av-stripe-"]').forEach(pattern=>{
+    pattern.setAttribute('patternTransform',`rotate(45) scale(${stripeScale.toFixed(3)})`);
+  });
   clone.setAttribute('width',width);
   clone.setAttribute('height',height);
   clone.setAttribute('viewBox',`0 0 ${width} ${height}`);
@@ -1668,7 +1895,7 @@ function drawExportLegend(ctx,items,x,y,maxWidth,{fontSize=27,dotSize=13,color='
   items.filter(item=>item.label!=='Aktivní výběr').forEach(item=>{
     const itemWidth=ctx.measureText(item.label).width+dotSize*2+50;
     if(cx+itemWidth>x+maxWidth){cx=x;cy+=lineHeight;}
-    ctx.fillStyle=item.color;
+    ctx.fillStyle=item.stripes?exportStripePattern(ctx,item.stripes):item.color;
     ctx.beginPath();ctx.arc(cx+dotSize,cy-dotSize*.65,dotSize,0,Math.PI*2);ctx.fill();
     if(item.mark){
       ctx.save();
@@ -1914,9 +2141,9 @@ function renderMapFilterLegend(){
   if(isCombination()){
     box.hidden=false;
     box.innerHTML=`<strong>Kombinace filtrů</strong>
-      <span class="mfl-note">Zvýrazněné jsou destinace, kterých se týkají všechny vybrané nemoci zároveň.</span>
-      <span class="mfl-combo-list">${activeDiseaseKeys().map(key=>`<span class="mfl-combo-item">${esc(DISEASES[key]?.label||key)}</span>`).join('')}</span>
-      <span class="mfl-reviewed">${esc(countDestinations(combinedHits().size))} v průniku</span>`;
+      <span class="mfl-note">Každá nemoc má svou barvu. Pruhované destinace se týkají více vybraných nemocí zároveň.</span>
+      <span class="mfl-combo-list">${activeDiseaseKeys().map((key,slot)=>`<span class="mfl-combo-item"><i style="${esc(comboSwatchStyle([slot]))}"></i>${esc(DISEASES[key]?.label||key)}</span>`).join('')}</span>
+      <span class="mfl-reviewed">${esc(countDestinations(combinedHits().size))} celkem · ${esc(countDestinations(comboOverlapHits().size))} se všemi</span>`;
     return;
   }
 
@@ -2109,12 +2336,22 @@ async function setDiseaseFilter(key){
 /* ── Kombinace filtrů ── */
 
 function syncFilterButtons(){
-  const selected=new Set(activeDiseaseKeys());
+  const selectedKeys=activeDiseaseKeys();
+  const selected=new Set(selectedKeys);
   document.querySelectorAll('.fbtn[data-disease]').forEach(btn=>{
     const key=btn.dataset.disease;
     const isActive=key==='all'?(!activeDisease||activeDisease==='all'):selected.has(key);
     btn.classList.toggle('active',isActive);
-    btn.classList.toggle('combo-active',isActive&&key!=='all'&&isCombination());
+    const inCombo=isActive&&key!=='all'&&isCombination();
+    btn.classList.toggle('combo-active',inCombo);
+    if(inCombo){
+      const slot=selectedKeys.indexOf(key);
+      btn.style.setProperty('--combo-color',comboSlotColor(slot));
+      btn.style.setProperty('--combo-hover',comboSlotHover(slot));
+    }else{
+      btn.style.removeProperty('--combo-color');
+      btn.style.removeProperty('--combo-hover');
+    }
     if(combineMode&&key!=='all')btn.setAttribute('aria-pressed',String(isActive));
     else btn.removeAttribute('aria-pressed');
   });
@@ -2139,12 +2376,13 @@ function renderCombineUi(){
     return;
   }
   summary.hidden=false;
-  const chips=activeDiseaseKeys().map((key,i)=>`<span class="fcombo-chip">${i?'<i aria-hidden="true">+</i>':''}${esc(DISEASES[key]?.label||key)}${i?`<button type="button" data-remove-disease="${esc(key)}" aria-label="Odebrat ${esc(DISEASES[key]?.label||key)} z kombinace">×</button>`:''}</span>`).join('');
+  const chips=activeDiseaseKeys().map((key,i)=>`<span class="fcombo-chip">${i?'<i class="fcombo-plus" aria-hidden="true">+</i>':''}<span class="fcombo-dot" style="${esc(comboSwatchStyle([i]))}" aria-hidden="true"></span>${esc(DISEASES[key]?.label||key)}${i?`<button type="button" data-remove-disease="${esc(key)}" aria-label="Odebrat ${esc(DISEASES[key]?.label||key)} z kombinace">×</button>`:''}</span>`).join('');
   const hint=combineMode
     ? (isCombination()?'Klikněte na další nemoc v seznamu výše, nebo kombinaci ukončete tlačítkem Hotovo.':'Vyberte v seznamu výše další nemoc, kterou chcete přidat.')
     : '';
   summary.innerHTML=`<div class="fcombo-row">${chips}</div>
-    ${isCombination()?`<span class="fcombo-count">${esc(countDestinations(combinedHits().size))} v průniku</span>`:''}
+    ${isCombination()?`<span class="fcombo-count">${esc(countDestinations(combinedHits().size))} celkem</span>
+    <span class="fcombo-overlap">z toho ${esc(countDestinations(comboOverlapHits().size))} se všemi</span>`:''}
     ${hint?`<span class="fcombo-hint">${esc(hint)}</span>`:''}
     ${isCombination()?`<button class="fcombo-clear" type="button" data-clear-combination>Zrušit kombinaci</button>`:''}`;
 
@@ -2169,6 +2407,12 @@ function setCombineMode(on){
 async function toggleExtraDisease(key){
   if(!DISEASES[key]||!activeDisease||activeDisease==='all')return;
   if(key===activeDisease)return;
+  /* Nad čtyři barvy už mapa přestává být čitelná. */
+  if(!extraDiseases.includes(key)&&activeDiseaseKeys().length>=COMBO_MAX){
+    const status=document.getElementById('filter-status');
+    if(status)status.textContent=`V kombinaci lze mít nejvýš ${COMBO_MAX} nemoci. Nejdřív některou odeberte.`;
+    return;
+  }
 
   if(extraDiseases.includes(key)){
     extraDiseases=extraDiseases.filter(k=>k!==key);
@@ -2201,7 +2445,7 @@ function applyCombinationChange(){
   const status=document.getElementById('filter-status');
   if(status){
     status.textContent=isCombination()
-      ? `${combinationLabel()}: ${countDestinations(combinedHits().size)} se všemi vybranými riziky zároveň.`
+      ? `${combinationLabel()}: ${countDestinations(combinedHits().size)} · ${comboBreakdownText()}.`
       : `${DISEASES[activeDisease].label}: zvýrazněno ${countDestinations(effectiveDiseaseHits(activeDisease).size)}${diseaseSourceLabel(activeDisease)}.`;
   }
   syncFilterButtons();
@@ -4017,7 +4261,7 @@ async function initMapInternal(){
     .style('pointer-events','none');
 
   /* Zoom */
-  zb=d3.zoom().scaleExtent([1,8]).extent([[0,0],[W,H]]).on('zoom',e=>{currentZoomK=e.transform.k;gv.attr('transform',e.transform);updateMarkerScale();});
+  zb=d3.zoom().scaleExtent([1,8]).extent([[0,0],[W,H]]).on('zoom',e=>{currentZoomK=e.transform.k;gv.attr('transform',e.transform);updateMarkerScale();updateStripeScale();});
   sv.call(zb);
   gv=sv.append('g').attr('class','map-viewport');
 

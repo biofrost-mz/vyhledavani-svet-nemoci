@@ -1815,3 +1815,53 @@ circle.dest-marker.kb-focus{
 @media(prefers-reduced-motion:reduce){
   path.country.kb-focus,circle.dest-marker.kb-focus{filter:none}
 }
+
+
+/* ==== v24.7 kombinace jako sjednocení ==== */
+.fr-combo-breakdown{
+  font-size:11.5px;line-height:1.5;color:#6c7b75;margin:2px 0 4px;
+}
+.fr-combo-keys{display:flex;flex-wrap:wrap;gap:6px 14px;margin:9px 0 2px}
+.fr-combo-key{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:#4f5f59}
+.fr-combo-key i{width:13px;height:13px;border-radius:4px;flex:0 0 auto;border:1px solid rgba(0,0,0,.10)}
+
+.fr-combo-groups{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;align-items:start}
+.fr-combo-group{
+  min-width:0;border:1px solid rgba(0,103,120,.11);border-radius:15px;background:#fff;
+  overflow:hidden;box-shadow:0 8px 24px rgba(0,103,120,.045);
+}
+.fr-combo-group.is-all{border-color:rgba(0,103,120,.28);box-shadow:0 10px 28px rgba(0,103,120,.09)}
+.fr-combo-group header{
+  display:grid;grid-template-columns:16px minmax(0,1fr) auto;gap:9px;align-items:start;
+  padding:12px;background:rgba(0,103,120,.035);border-bottom:1px solid rgba(0,103,120,.08);
+}
+.fr-combo-swatch{width:14px;height:14px;margin-top:3px;border-radius:4px;border:1px solid rgba(0,0,0,.12)}
+.fr-combo-group h3{margin:0;font-family:'Saira',sans-serif;font-size:13.5px;line-height:1.25;color:var(--oc-blue)}
+.fr-combo-group header p{margin:3px 0 0;font-size:11px;line-height:1.45;color:#6d7b76}
+.fr-combo-group header>strong{
+  display:inline-flex;min-width:29px;height:29px;align-items:center;justify-content:center;
+  padding:0 7px;border-radius:999px;background:#fff;color:var(--oc-blue);
+  font-family:'Saira',sans-serif;font-size:12px;box-shadow:0 3px 10px rgba(0,0,0,.05);
+}
+.fr-combo-list{display:flex;flex-wrap:wrap;align-content:flex-start;gap:7px;max-height:260px;overflow:auto;padding:12px}
+.fr-chip.combo{display:inline-flex;align-items:center;gap:7px;background:#fff;border-color:rgba(0,103,120,.14);color:#42524d}
+.fr-chip-swatch{width:10px;height:10px;border-radius:3px;flex:0 0 auto;border:1px solid rgba(0,0,0,.12)}
+.mfl-combo-item{display:inline-flex;align-items:center;gap:5px}
+.mfl-combo-item i{width:9px;height:9px;border-radius:3px;flex:0 0 auto}
+
+@media(max-width:640px){
+  .fr-combo-groups{grid-template-columns:1fr}
+  .fr-combo-list{max-height:200px}
+}
+
+/* Tlačítko nemoci v kombinaci nese barvu, kterou má v mapě. */
+.fbtn.combo-active{
+  background:var(--combo-color,var(--oc-magenta))!important;
+  border-color:var(--combo-color,var(--oc-magenta))!important;
+  color:#fff!important;
+  box-shadow:0 10px 22px rgba(0,0,0,.14);
+}
+.fbtn.combo-active:hover{background:var(--combo-hover,#a9004e)!important}
+.fcombo-dot{width:10px;height:10px;border-radius:3px;flex:0 0 auto;border:1px solid rgba(0,0,0,.12)}
+.fcombo-plus{font-style:normal;color:#b07;opacity:.6;margin-left:-4px;margin-right:2px}
+.fcombo-overlap{font-size:11.5px;color:#6c7b75}

@@ -288,6 +288,22 @@ Opravy nalezené při systematickém průchodu aplikací.
 - vybraná destinace se hlásí čtečce obrazovky včetně toho, jestli odpovídá aktivnímu filtru,
 - statické assety mají verzovaný cache-buster `v=24.6`.
 
+## v24.7 – kombinace jako sjednocení
+
+Kombinace filtrů dřív ukazovala jen průnik, tedy destinace se **všemi** vybranými
+nemocemi zároveň. Nově ukazuje **sjednocení** — destinace, kterých se týká
+kterákoli z vybraných nemocí. Průnik z pohledu nezmizel, je to právě ta
+pruhovaná skupina, takže výběr nese víc informace než dřív.
+
+- každá nemoc v kombinaci má vlastní barvu podle pořadí výběru (zelená, magenta, fialová, oranžová),
+- destinace, kterých se týká víc vybraných nemocí zároveň, jsou v mapě **pruhované** z jejich barev; pruhy drží stejnou šířku i při přiblížení,
+- tlačítka nemocí, čipy v pruhu kombinace i legenda pod mapou nesou stejné barvy jako mapa,
+- výsledky jsou rozdělené do skupin podle toho, kterých nemocí se destinace týkají; skupina se všemi vybranými nemocemi je první,
+- pod počtem je rozpad („jen Malárie: 12 · jen Žlutá zimnice: 49 · více nemocí zároveň: 74"),
+- pruhy se přenášejí i do PNG exportu, kde se přizpůsobí velikosti obrázku,
+- kombinace je omezená na čtyři nemoci — nad čtyři barvy přestává být mapa čitelná,
+- statické assety mají verzovaný cache-buster `v=24.7`.
+
 ### Známá omezení
 - aplikaci je potřeba servírovat přes HTTP(S); při otevření přes `file://` selže načtení dat kvůli CORS,
 - filtry žloutenky A i B (230/230), meningokoka (229), spalniček (228) a chřipky (226) zvýrazní téměř celou mapu; upozorňuje na to poznámka pod výsledky,
