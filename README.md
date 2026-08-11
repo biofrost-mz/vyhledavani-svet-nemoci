@@ -269,6 +269,25 @@ Opravy nalezené při systematickém průchodu aplikací.
 - území bez cestovních doporučení zůstávají tmavší, takže je legenda pořád rozliší,
 - statické assety mají verzovaný cache-buster `v=24.5`.
 
+## v24.6 – tisk, sdílení a klávesnice
+
+**Tisk a PDF**
+- v detailu destinace i v souhrnu trasy je tlačítko „Vytisknout / uložit PDF",
+- PDF vytváří prohlížeč (Tisk → Uložit jako PDF) — dá lepší typografii i výběr formátu než knihovna a nepřidává do projektu závislost,
+- tiskový výstup vynechá mapu a ovládání aplikace a nechá jen doporučení, hlavičku s datem a zdrojem a právní upozornění.
+
+**Sdílení**
+- `index.html` má kompletní meta tagy: `description`, `canonical`, favicon, Open Graph i Twitter Card,
+- sdílený odkaz má náhledový obrázek 1200×630 vygenerovaný stejným exportérem jako PNG mapy,
+- každý z hlavních filtrů má vlastní sdílecí stránku ve `share/` s vlastním náhledem — crawlery nespouštějí JavaScript a query string pro ně nic neznamená, takže `?filtr=malaria` by jinak vždy ukázal výchozí obrázek,
+- sdílecí stránky se generují skriptem `node scripts/generate-share-pages.mjs` z obrázků v `assets/img/share/`.
+
+**Klávesnice**
+- mapa je jeden fokusovatelný prvek; šipky přeskakují na nejbližší destinaci daným směrem, Enter otevře detail, Escape mapu opustí, Home skočí na první destinaci abecedně, `+` a `-` přibližují,
+- kurzor začíná u vybrané destinace, jinak v Česku,
+- vybraná destinace se hlásí čtečce obrazovky včetně toho, jestli odpovídá aktivnímu filtru,
+- statické assety mají verzovaný cache-buster `v=24.6`.
+
 ### Známá omezení
 - aplikaci je potřeba servírovat přes HTTP(S); při otevření přes `file://` selže načtení dat kvůli CORS,
 - filtry žloutenky A i B (230/230), meningokoka (229), spalniček (228) a chřipky (226) zvýrazní téměř celou mapu; upozorňuje na to poznámka pod výsledky,

@@ -2576,11 +2576,166 @@ async function renderRoutePanel(){
   ${sections||'<p class="route-missing">Pro zastávky v trase se zatím nepodařilo načíst žádná doporučení.</p>'}
   <div class="route-actions">
     <a class="bmore" href="https://www.ockovacicentrum.cz/cz/kde-ockujeme" target="_blank" rel="noopener noreferrer">Najít očkovací centrum</a>
+    <button class="bmore secondary" type="button" data-print-view>Vytisknout / uložit PDF</button>
     <button class="bmore secondary" type="button" data-route-clear>Vymazat trasu</button>
   </div>
   ${consultationNoteHtml()}`;
 
   panel.querySelector('[data-route-clear]')?.addEventListener('click',clearRoute);
+}
+
+/* ── Tisk a PDF ──
+   Uložení do PDF necháváme na prohlížeči: „Tisk → Uložit jako PDF“ dá lepší
+   typografii i výběr formátu než jakákoli knihovna a nepřidává závislost.
+   Naším úkolem je připravit stránku tak, aby na papíře dávala smysl. */
+function printContextLabel(){
+  if(routeIds.length)return routeInfos().map(i=>i.name).join(' → ');
+  if(curInfo)return curInfo.name;
+  if(isCombination())return combinationLabel();
+  if(activeDisease&&activeDisease!=='all')return DISEASES[activeDisease]?.label||'';
+  return 'Přehled destinací';
+}
+
+function buildPrintHeader(){
+  const box=document.getElementById('print-header');
+  if(!box)return;
+  const date=new Intl.DateTimeFormat('cs-CZ',{day:'numeric',month:'numeric',year:'numeric'}).format(new Date());
+  const parts=[`Vytištěno ${date}`,'Zdroj: cestovní doporučení Avenier, ockovacicentrum.cz'];
+  /* Dvojtečka drží 1. pád – „Trasa o 3 destinace“ by bylo špatně. */
+  if(routeIds.length)parts.push(`Trasa: ${countDestinations(routeIds.length)}`);
+  box.innerHTML=`<div class="print-brand">Avenier · Očkovací centrum</div>
+    <div class="print-title">${esc(printContextLabel())}</div>
+    <div class="print-meta">${parts.map(esc).join(' · ')}</div>
+    <div class="print-note"><strong>Orientační přehled.</strong> Doporučení se liší podle délky pobytu, konkrétní oblasti, stylu cestování a zdravotního stavu. Tento výpis nenahrazuje vyšetření ani doporučení lékaře.</div>`;
+}
+
+function printCurrentView(){
+  buildPrintHeader();
+  window.print();
+}
+
+/* ── Ovládání mapy z klávesnice ──
+   Mapa byla dostupná jen myší. Tabovat přes 240 zemí by bylo nepoužitelné,
+   proto je mapa jeden fokusovatelný prvek a šipky v ní přeskakují na nejbližší
+   destinaci daným směrem. */
+let keyboardCursorId=null;
+let navPoints=[];
+
+function rebuildNavPoints(){
+  navPoints=[];
+  if(!prj||!pg)return;
+  FI.forEach((info,id)=>{
+    if(!info.has)return;
+    let point=null;
+    if(info.coords)point=prj(info.coords);
+    else{
+      const feat=FM.get(mappedIdForInfo(id,info));
+      if(feat){try{point=pg.centroid(feat);}catch(e){point=null;}}
+    }
+    if(!point||!Number.isFinite(point[0])||!Number.isFinite(point[1]))return;
+    navPoints.push({id:normId(id),name:info.name,x:point[0],y:point[1]});
+  });
+}
+
+function announceMap(message){
+  const box=document.getElementById('map-live');
+  if(box)box.textContent=message;
+}
+
+function setKeyboardCursor(id,{announce=true}={}){
+  keyboardCursorId=id===null||id===undefined?null:normId(id);
+  gv?.selectAll('path.country').classed('kb-focus',d=>keyboardCursorId!==null&&featureId(d)===keyboardCursorId);
+  d3.selectAll('circle.dest-marker').classed('kb-focus',d=>keyboardCursorId!==null&&normId(d.id)===keyboardCursorId);
+  if(keyboardCursorId===null)return;
+  const info=FI.get(keyboardCursorId);
+  if(!info)return;
+  const hl=document.getElementById('hlbl');
+  if(hl){hl.textContent=info.name;hl.classList.add('on');}
+  if(announce){
+    const state=activeDisease==='all'
+      ? (info.has?'má cestovní doporučení':'bez cestovních doporučení')
+      : (matchesActiveFilter(keyboardCursorId)?'odpovídá filtru':'neodpovídá filtru');
+    announceMap(`${info.name}, ${state}. Enter otevře detail.`);
+  }
+}
+
+function moveKeyboardCursor(dx,dy){
+  if(!navPoints.length)rebuildNavPoints();
+  if(!navPoints.length)return;
+  const current=navPoints.find(p=>p.id===keyboardCursorId);
+  if(!current){
+    const start=navPoints.slice().sort((a,b)=>a.x-b.x||a.y-b.y)[0];
+    setKeyboardCursor(start.id);
+    return;
+  }
+  /* Vybíráme nejbližší bod ve zvoleném směru; pohyb napříč směrem se penalizuje,
+     aby šipka doleva nepřeskakovala nahoru přes půl mapy. */
+  let best=null,bestScore=Infinity;
+  navPoints.forEach(p=>{
+    if(p.id===current.id)return;
+    const ox=(p.x-current.x)*dx+(p.y-current.y)*dy;
+    if(ox<=0.5)return;
+    const cross=Math.abs((p.x-current.x)*dy-(p.y-current.y)*dx);
+    const score=ox+cross*2.5;
+    if(score<bestScore){bestScore=score;best=p;}
+  });
+  if(best)setKeyboardCursor(best.id);
+}
+
+function setupMapKeyboard(){
+  const svg=document.getElementById('av-map');
+  if(!svg||svg.dataset.kbBound==='1')return;
+  svg.dataset.kbBound='1';
+  svg.setAttribute('tabindex','0');
+  svg.setAttribute('role','application');
+  svg.setAttribute('aria-label','Mapa destinací. Šipkami se pohybujete mezi destinacemi, Enter otevře detail, Escape mapu opustí.');
+
+  svg.addEventListener('focus',()=>{
+    rebuildNavPoints();
+    if(keyboardCursorId===null){
+      /* Začínáme u vybrané destinace, jinak doma – z Česka se cestovatel
+         orientuje líp než z prvního bodu na okraji projekce. */
+      const selected=curInfo?normId(curInfo.id):null;
+      const home=navPoints.some(p=>p.id===203)?203:null;
+      if(selected!==null&&navPoints.some(p=>p.id===selected))setKeyboardCursor(selected);
+      else if(home!==null)setKeyboardCursor(home);
+      else moveKeyboardCursor(1,0);
+    }else setKeyboardCursor(keyboardCursorId);
+    announceMap('Mapa je aktivní. Šipkami vyberte destinaci, Enter otevře detail.');
+  });
+
+  svg.addEventListener('blur',()=>{
+    setKeyboardCursor(null,{announce:false});
+    document.getElementById('hlbl')?.classList.remove('on');
+  });
+
+  svg.addEventListener('keydown',e=>{
+    const moves={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]};
+    if(moves[e.key]){
+      e.preventDefault();
+      moveKeyboardCursor(...moves[e.key]);
+      return;
+    }
+    if(e.key==='Enter'||e.key===' '){
+      e.preventDefault();
+      if(keyboardCursorId!==null)selectCountry(keyboardCursorId);
+      return;
+    }
+    if(e.key==='Escape'){
+      setKeyboardCursor(null,{announce:false});
+      svg.blur();
+      return;
+    }
+    if(e.key==='Home'){
+      e.preventDefault();
+      rebuildNavPoints();
+      const first=navPoints.slice().sort((a,b)=>a.name.localeCompare(b.name,'cs'))[0];
+      if(first)setKeyboardCursor(first.id);
+      return;
+    }
+    if(e.key==='+'||e.key==='='){e.preventDefault();sv.transition().call(zb.scaleBy,1.5);return;}
+    if(e.key==='-'){e.preventDefault();sv.transition().call(zb.scaleBy,.67);}
+  });
 }
 
 /* ── Panel ── */
@@ -2611,6 +2766,7 @@ function renderPanel(info){
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         </a>
         ${url?`<a class="bmore secondary" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(moreAboutDestinationLabel(info))}</a>`:''}
+        <button class="bmore secondary" type="button" data-print-view>Vytisknout / uložit PDF</button>
       </div>
       <span class="ftnote">ockovacicentrum.cz</span>
     </div>
@@ -2837,6 +2993,7 @@ function handleMapResize(){
       .attr('display',d=>prj(d.info.coords)?null:'none');
   }
 
+  rebuildNavPoints();
   zb.extent([[0,0],[W,H]]);
   sv.call(zb.transform,d3.zoomIdentity);
   currentZoomK=1;
@@ -3954,9 +4111,17 @@ async function initMapInternal(){
     mapResizeListenersBound=true;
   }
 
+  setupMapKeyboard();
+  rebuildNavPoints();
+
   /* Až po sestavení mapy – obnovení stavu vybírá destinaci i v mapové vrstvě. */
   await applyStateFromUrl();
   setupMapExport();
 }
+
+document.addEventListener('click',e=>{
+  if(e.target.closest('[data-print-view]'))printCurrentView();
+});
+window.addEventListener('beforeprint',buildPrintHeader);
 
 initMap();

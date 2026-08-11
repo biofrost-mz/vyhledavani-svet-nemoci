@@ -1,4 +1,4 @@
-import {readFile,stat} from 'node:fs/promises';
+import {readFile,readdir,stat} from 'node:fs/promises';
 import {dirname,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
@@ -140,6 +140,38 @@ assert(app.includes('opts.combo')&&app.includes('combinationLabel()'),'Export ne
 
 /* Sdílení stavu přes URL. */
 assert(/URL_PARAM=\{disease:'filtr',facet:'kategorie',destination:'zeme',route:'trasa'\}/.test(app),'Chybí parametry pro sdílení stavu v URL.');
+
+/* Sdílení: meta tagy, náhledové obrázky a sdílecí stránky filtrů. */
+const SHARE_BASE='https://vyhledavani-svet-nemoci.vercel.app';
+['og:title','og:description','og:image','og:url','twitter:card','twitter:image'].forEach(tag=>{
+  assert(html.includes(`"${tag}"`),`V index.html chybí meta tag ${tag}.`);
+});
+assert(html.includes('name="description"'),'V index.html chybí meta description.');
+assert(html.includes('rel="canonical"')&&html.includes('rel="icon"'),'Chybí canonical nebo favicon.');
+assert(html.includes(`${SHARE_BASE}/assets/img/share/default.jpg`),'og:image neukazuje na výchozí náhledový obrázek.');
+const defaultShare=await stat(resolve(root,'assets/img/share/default.jpg')).catch(()=>null);
+assert(defaultShare?.isFile()&&defaultShare.size>15000,'Chybí použitelný výchozí náhledový obrázek.');
+const sharePages=await readdir(resolve(root,'share')).catch(()=>[]);
+assert(sharePages.filter(f=>f.endsWith('.html')).length>=6,`Sdílecích stránek filtrů je jen ${sharePages.length}.`);
+for(const pageName of sharePages.filter(f=>f.endsWith('.html'))){
+  const pageHtml=await readFile(resolve(root,'share',pageName),'utf8');
+  const key=pageName.replace(/\.html$/,'');
+  assert(pageHtml.includes(`${SHARE_BASE}/assets/img/share/${key}.jpg`),`Sdílecí stránka ${pageName} neodkazuje na svůj obrázek.`);
+  assert(pageHtml.includes(`filtr=${encodeURIComponent(key)}`),`Sdílecí stránka ${pageName} nepředá filtr aplikaci.`);
+  const image=await stat(resolve(root,'assets/img/share',`${key}.jpg`)).catch(()=>null);
+  assert(image?.isFile()&&image.size>15000,`Chybí náhledový obrázek pro ${key}.`);
+}
+
+/* Tisk a PDF řeší prohlížeč, my dodáváme tiskový styl a hlavičku. */
+assert(html.includes('id="print-header"'),'Chybí tisková hlavička.');
+assert(mapCss.includes('@media print'),'Chybí tiskový styl.');
+assert(app.includes('function buildPrintHeader')&&app.includes('data-print-view'),'Chybí ovládání tisku.');
+
+/* Mapa musí jít ovládat z klávesnice. */
+assert(app.includes('function setupMapKeyboard')&&app.includes("setAttribute('tabindex','0')"),'Mapa není fokusovatelná z klávesnice.');
+assert(app.includes('function moveKeyboardCursor')&&app.includes('function rebuildNavPoints'),'Chybí pohyb kurzoru po mapě.');
+assert(html.includes('id="map-live"'),'Chybí oblast pro hlášení čtečce obrazovky.');
+assert(mapCss.includes('path.country.kb-focus'),'Kurzor klávesnice není v mapě vidět.');
 
 /* Trasa přes více destinací. */
 assert(app.includes('function setRoute')&&app.includes('function toggleRouteDestination')&&app.includes('function renderRoutePanel'),'Chybí logika trasy.');

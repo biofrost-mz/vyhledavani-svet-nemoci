@@ -1724,3 +1724,94 @@ a:hover{color:var(--oc-green)}
   .route-head h2{font-size:21px}
   .route-actions .bmore{width:100%;justify-content:center}
 }
+
+
+/* ==== v24.6 tisk a PDF ==== */
+.print-header{display:none}
+
+@media print{
+  /* Na papír patří doporučení, ne ovládání aplikace. */
+  .hd,.sw,.filters,.quick,.info-hub,#mw,.leg,#filter-results,
+  .map-info,.dbg,.admin-panel,.map-export-btn,.map-export-note,
+  #route-bar .route-chip button,#route-bar .route-clear,
+  .mi-actions,.route-actions,.bclose,.help-btn,.mi-close,
+  .external-toggle,.fcombo,.finfo,dialog{
+    display:none!important;
+  }
+
+  html,body{background:#fff!important;color:#111!important}
+  body.oc-map-page{padding:0!important;background:#fff!important}
+  .main{margin:0!important;padding:0!important;max-width:none!important}
+
+  .print-header{
+    display:block;
+    margin:0 0 14px;
+    padding:0 0 10px;
+    border-bottom:2px solid #78be20;
+  }
+  .print-brand{
+    font-family:'Saira',sans-serif;font-size:11pt;font-weight:700;
+    letter-spacing:.12em;text-transform:uppercase;color:#006778;
+  }
+  .print-title{font-family:'Saira',sans-serif;font-size:20pt;font-weight:600;color:#111;margin:4px 0 2px}
+  .print-meta{font-size:8.5pt;color:#444;line-height:1.5}
+  .print-note{
+    margin-top:10px;padding:8px 10px;
+    border:1px solid #999;border-left:3px solid #b58200;border-radius:4px;
+    font-size:8.5pt;line-height:1.5;color:#222;
+  }
+
+  /* Karty na papíře nepotřebují stíny, rámečky ani dekorace. */
+  .card,.route-panel,.external-diseases,.consult-note{
+    box-shadow:none!important;background:#fff!important;
+    border:none!important;border-radius:0!important;
+    padding:0!important;margin:0 0 12px!important;
+  }
+  .card::after{display:none!important}
+  .div{display:none}
+  .dname,.route-head h2{font-size:15pt;color:#111}
+  .dlbl,.route-kicker{color:#555}
+  .sl{font-size:11.5pt!important;color:#006778!important;margin:12px 0 6px!important;padding-left:10px!important}
+  .sl::after{display:none}
+  .pill,.vcb,.mi-badge,.route-item{
+    border:1px solid #999!important;background:#fff!important;color:#111!important;
+    box-shadow:none!important;border-radius:3px!important;padding:3px 7px!important;font-size:8.5pt!important;
+  }
+  .pill.p{border-left:3px solid #006778!important}
+  .pill.z{border-left:3px solid #78be20!important}
+  .pill.d{border-left:3px solid #999!important}
+  .route-item-count{background:none!important;border-left:1px solid #ccc;padding-left:5px;margin-left:2px}
+  .external-card{border:1px solid #bbb!important;border-radius:3px!important;margin-bottom:6px}
+  .external-card .external-body{display:block!important}
+  .external-source-chip{border:1px solid #999!important;background:#fff!important;color:#111!important}
+  .consult-note{border-top:1px solid #ccc!important;padding-top:8px!important;font-size:9pt}
+
+  a{color:#111!important;text-decoration:none!important}
+  .external-meta a::after{content:" (" attr(href) ")";font-size:7.5pt;color:#555;word-break:break-all}
+
+  section,.route-group,.pills{break-inside:avoid;page-break-inside:avoid}
+  @page{margin:14mm 13mm}
+}
+
+
+/* ==== v24.6 klávesnice ==== */
+.sr-only{
+  position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+  overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;
+}
+#av-map:focus{outline:none}
+#av-map:focus-visible{outline:3px solid #9bd344;outline-offset:-3px}
+/* Kurzor klávesnice musí být vidět i na tmavém oceánu i na světlém polygonu. */
+path.country.kb-focus{
+  stroke:#fff!important;
+  stroke-width:2.2!important;
+  filter:drop-shadow(0 0 4px rgba(155,211,68,.95));
+}
+circle.dest-marker.kb-focus{
+  stroke:#fff!important;
+  stroke-width:2.4!important;
+  filter:drop-shadow(0 0 4px rgba(155,211,68,.95));
+}
+@media(prefers-reduced-motion:reduce){
+  path.country.kb-focus,circle.dest-marker.kb-focus{filter:none}
+}

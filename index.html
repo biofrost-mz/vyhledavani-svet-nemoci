@@ -4,10 +4,34 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mapa očkování a zdravotních rizik · Avenier</title>
+<meta name="description" content="Interaktivní mapa očkování, vstupních podmínek a zdravotních rizik pro 230 destinací. Filtrujte podle nemoci, sestavte trasu přes více zemí a zjistěte, co řešit před cestou.">
+<meta name="theme-color" content="#006778">
+<link rel="canonical" href="https://vyhledavani-svet-nemoci.vercel.app/">
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/img/avenier-logo.png">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Avenier · Očkovací centrum">
+<meta property="og:locale" content="cs_CZ">
+<meta property="og:url" content="https://vyhledavani-svet-nemoci.vercel.app/">
+<meta property="og:title" content="Mapa očkování a zdravotních rizik">
+<meta property="og:description" content="Očkování, vstupní podmínky a zdravotní rizika pro 230 destinací. Filtrujte podle nemoci nebo si sestavte trasu přes více zemí.">
+<meta property="og:image" content="https://vyhledavani-svet-nemoci.vercel.app/assets/img/share/default.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Mapa světa s vyznačenými destinacemi, pro které jsou dostupná očkovací doporučení">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Mapa očkování a zdravotních rizik">
+<meta name="twitter:description" content="Očkování, vstupní podmínky a zdravotní rizika pro 230 destinací.">
+<meta name="twitter:image" content="https://vyhledavani-svet-nemoci.vercel.app/assets/img/share/default.jpg">
+
 <link rel="stylesheet" href="assets/css/fonts.css?v=24.1">
-<link rel="stylesheet" href="assets/css/map.css?v=24.5">
+<link rel="stylesheet" href="assets/css/map.css?v=24.6">
 </head>
 <body class="oc-map-page">
+
+<div id="print-header" class="print-header" aria-hidden="true"></div>
 
 <header class="hd">
   <div class="hd-logo">AVENIER</div>
@@ -132,6 +156,7 @@
     <div id="hint">Klikněte na destinaci v mapě nebo ji vyhledejte</div>
     <div id="map-filter-legend" class="map-filter-legend" hidden></div>
     <div id="map-info" class="map-info" aria-live="polite"></div>
+    <p id="map-live" class="sr-only" role="status" aria-live="polite"></p>
     <div id="zc">
       <button class="zbtn sm map-export-btn" id="map-export-png" type="button" disabled title="Stáhnout mapu jako PNG" aria-label="Stáhnout mapu jako PNG"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11"></path><path d="m7.5 10 4.5 4.5 4.5-4.5"></path><path d="M5 20h14"></path></svg></button>
       <button class="zbtn" id="zi" title="Přiblížit">+</button>
@@ -149,7 +174,7 @@
 
 <script src="assets/vendor/d3.min.js?v=24.1"></script>
 <script src="assets/vendor/topojson.min.js?v=24.1"></script>
-<script src="assets/js/config.js?v=24.5"></script>
-<script src="assets/js/app.js?v=24.5"></script>
+<script src="assets/js/config.js?v=24.6"></script>
+<script src="assets/js/app.js?v=24.6"></script>
 </body>
 </html>
