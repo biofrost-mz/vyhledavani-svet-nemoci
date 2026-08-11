@@ -252,6 +252,27 @@ function updateMarkerScale(){
 const COMBO_COLOR='#CA005D';
 const COMBO_HOVER='#a9004e';
 
+/* ── Trasa přes více destinací ──
+   Trasa je vrstva nad filtrem, ne jeho náhrada. Proto se nekreslí výplní
+   (tu si drží filtr), ale výrazným obrysem – obojí je pak čitelné zároveň. */
+const ROUTE_COLOR='#F2B705';
+let routeIds=[];
+
+function isInRoute(id){
+  const nid=normId(id);
+  return routeIds.some(x=>normId(x)===nid);
+}
+
+function strokeForId(id,{hover=false}={}){
+  if(isInRoute(id))return ROUTE_COLOR;
+  return hover?MC.brdH:MC.brd;
+}
+
+function strokeWidthForId(id,{hover=false}={}){
+  if(isInRoute(id))return 1.7;
+  return hover?.85:.45;
+}
+
 function activeDiseaseKeys(){
   if(!activeDisease||activeDisease==='all')return [];
   return unique([activeDisease,...extraDiseases]);
@@ -328,7 +349,7 @@ function bf(d){
 
 function resetSel(){
   if(selEl){
-    d3.select(selEl).attr('fill',bf(selD)).attr('stroke',MC.brd).attr('stroke-width',.45);
+    d3.select(selEl).attr('fill',bf(selD)).attr('stroke',strokeForId(featureId(selD))).attr('stroke-width',strokeWidthForId(featureId(selD)));
   }
   if(selMark){
     const k=currentZoomK||1;
@@ -1331,14 +1352,14 @@ function repaintMap(){
   if(!gv)return;
   gv.selectAll('path.country')
     .attr('fill',d=>selD&&featureId(d)===featureId(selD)?MC.sel:bf(d))
-    .attr('stroke',d=>selD&&featureId(d)===featureId(selD)?MC.selB:MC.brd)
-    .attr('stroke-width',d=>selD&&featureId(d)===featureId(selD)?1.55:.45);
+    .attr('stroke',d=>selD&&featureId(d)===featureId(selD)?MC.selB:strokeForId(featureId(d)))
+    .attr('stroke-width',d=>selD&&featureId(d)===featureId(selD)?1.55:strokeWidthForId(featureId(d)));
 
   const k=currentZoomK||1;
   d3.selectAll('circle.dest-marker')
     .attr('r',d=>markerBaseRadius(d.id)/k)
     .attr('fill',d=>isSelectedMarker(d.id)?MC.sel:colorForId(d.id))
-    .attr('stroke',d=>isSelectedMarker(d.id)?MC.selB:'rgba(255,255,255,0.55)')
+    .attr('stroke',d=>isSelectedMarker(d.id)?MC.selB:(isInRoute(d.id)?ROUTE_COLOR:'rgba(255,255,255,0.55)'))
     .attr('stroke-width',d=>markerBaseStroke(d.id)/k);
 }
 
@@ -2327,6 +2348,7 @@ function renderMapInfo(info,data=null,loading=false){
   <div class="mi-actions">
     <a class="mi-btn center" href="${esc(centerUrl)}" target="_blank" rel="noopener noreferrer">Najít očkovací centrum</a>
     ${url?`<a class="mi-btn secondary" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(moreAboutDestinationLabel(info))}</a>`:''}
+    <button class="mi-btn route${isInRoute(info.id)?' on':''}" data-mi-action="route" type="button">${isInRoute(info.id)?'V trase ✓':'+ Přidat do trasy'}</button>
     <button class="mi-btn share" data-mi-action="share" type="button">Zkopírovat odkaz</button>
     <button class="mi-btn ghost" data-mi-action="scroll-detail" type="button">Zobrazit doporučení</button>
   </div>`;
@@ -2349,6 +2371,11 @@ function renderMapInfo(info,data=null,loading=false){
       copyShareLink(actionEl);
       return;
     }
+    if(action==='route'){
+      toggleRouteDestination(info.id);
+      document.getElementById('route-panel')?.scrollIntoView({behavior:'smooth',block:'nearest'});
+      return;
+    }
     if(action==='scroll-detail'){
       scrollToPanel();
       return;
@@ -2364,6 +2391,196 @@ function renderMapInfo(info,data=null,loading=false){
 function clearMapInfo(){
   const box=document.getElementById('map-info');
   if(box){box.classList.remove('open');box.innerHTML='';}
+}
+
+/* ── Trasa přes více destinací ──
+   Cesta bývá vícezastávková („Keňa + Tanzanie + Zanzibar“). Trasa sjednotí
+   doporučení všech zastávek a u každé položky ukáže, kolika destinací se týká. */
+const ROUTE_MAX=12;
+
+function routeInfos(){
+  return routeIds.map(id=>FI.get(normId(id))).filter(Boolean);
+}
+
+function setRoute(ids){
+  const seen=new Set();
+  routeIds=[];
+  (ids||[]).forEach(id=>{
+    const nid=normId(id);
+    const key=String(nid);
+    if(seen.has(key))return;
+    if(!FI.get(nid))return;
+    if(routeIds.length>=ROUTE_MAX)return;
+    seen.add(key);
+    routeIds.push(nid);
+  });
+  onRouteChanged();
+}
+
+function toggleRouteDestination(id){
+  const nid=normId(id);
+  if(isInRoute(nid)){
+    routeIds=routeIds.filter(x=>normId(x)!==nid);
+  }else{
+    if(routeIds.length>=ROUTE_MAX){
+      const bar=document.getElementById('route-bar');
+      bar?.classList.add('route-bar-limit');
+      setTimeout(()=>bar?.classList.remove('route-bar-limit'),1200);
+      return;
+    }
+    routeIds=[...routeIds,nid];
+  }
+  onRouteChanged();
+}
+
+function clearRoute(){
+  routeIds=[];
+  onRouteChanged();
+}
+
+function onRouteChanged(){
+  renderRouteBar();
+  renderRoutePanel();
+  repaintMap();
+  if(curInfo)renderMapInfo(curInfo,getCachedDetail(curInfo.slug),false);
+  updateUrlState();
+}
+
+function renderRouteBar(){
+  const bar=document.getElementById('route-bar');
+  if(!bar)return;
+  if(!routeIds.length){
+    bar.hidden=true;
+    bar.innerHTML='';
+    return;
+  }
+  bar.hidden=false;
+  const chips=routeInfos().map((info,i)=>`<span class="route-chip">
+    <b>${i+1}</b>${esc(info.name)}
+    <button type="button" data-route-remove="${esc(info.id)}" aria-label="Odebrat ${esc(info.name)} z trasy">×</button>
+  </span>`).join('');
+  bar.innerHTML=`<span class="route-label">Trasa</span>
+    <div class="route-chips">${chips}</div>
+    <span class="route-count">${esc(countDestinations(routeIds.length))}</span>
+    <button class="route-clear" type="button" data-route-clear>Vymazat trasu</button>`;
+
+  bar.querySelectorAll('[data-route-remove]').forEach(btn=>{
+    btn.addEventListener('click',()=>toggleRouteDestination(btn.dataset.routeRemove));
+  });
+  bar.querySelector('[data-route-clear]')?.addEventListener('click',clearRoute);
+}
+
+/* Nejsilnější kategorie rozhoduje: co je někde povinné, nesmí spadnout mezi
+   doporučená. */
+const ROUTE_CATEGORY_ORDER=['povinne','zakladni','doporuceni'];
+
+function routeItemsFromDetails(entries){
+  const items=new Map();
+  entries.forEach(({info,data})=>{
+    ROUTE_CATEGORY_ORDER.forEach(category=>{
+      const list=Array.isArray(data?.[category])?data[category]:[];
+      list.forEach(item=>{
+        const name=cleanName(diseaseItemName(item));
+        if(!name)return;
+        const key=slugKey(name);
+        const existing=items.get(key);
+        const url=item?.url||item?.www||'';
+        if(existing){
+          if(ROUTE_CATEGORY_ORDER.indexOf(category)<ROUTE_CATEGORY_ORDER.indexOf(existing.category))existing.category=category;
+          if(!existing.destinations.includes(info.name))existing.destinations.push(info.name);
+          if(!existing.url&&url)existing.url=url;
+        }else{
+          items.set(key,{name,url,category,destinations:[info.name]});
+        }
+      });
+    });
+  });
+  return [...items.values()].sort((a,b)=>
+    b.destinations.length-a.destinations.length||a.name.localeCompare(b.name,'cs')
+  );
+}
+
+function routeItemHtml(item,total){
+  const cls=item.category==='povinne'?'p':item.category==='zakladni'?'z':'d';
+  const title=`${item.name} · ${item.destinations.join(', ')}`;
+  const label=`${item.destinations.length}/${total}`;
+  const inner=`${esc(item.name)}<span class="route-item-count">${esc(label)}</span>`;
+  return item.url
+    ? `<a class="pill ${cls} route-item" href="${esc(item.url)}" target="_blank" rel="noopener noreferrer" title="${esc(title)}">${inner}</a>`
+    : `<span class="pill ${cls} route-item" title="${esc(title)}">${inner}</span>`;
+}
+
+let routeRenderToken=0;
+
+async function renderRoutePanel(){
+  const panel=document.getElementById('route-panel');
+  if(!panel)return;
+  if(!routeIds.length){
+    panel.hidden=true;
+    panel.innerHTML='';
+    return;
+  }
+
+  const token=++routeRenderToken;
+  const infos=routeInfos();
+  const withData=infos.filter(info=>info.has);
+  panel.hidden=false;
+  panel.innerHTML=`<div class="route-head">
+    <div>
+      <p class="route-kicker">Souhrn trasy</p>
+      <h2>${esc(infos.map(i=>i.name).join(' → '))}</h2>
+    </div>
+    <span class="route-badge">${esc(countDestinations(infos.length))}</span>
+  </div>
+  <p class="route-loading">Načítám doporučení pro celou trasu…</p>`;
+
+  const entries=[];
+  for(const info of withData){
+    const data=await fetchCountryDetail(info);
+    if(token!==routeRenderToken)return;
+    if(data)entries.push({info,data});
+  }
+  if(token!==routeRenderToken)return;
+
+  const items=routeItemsFromDetails(entries);
+  const total=entries.length;
+  const missing=infos.filter(info=>!info.has);
+  const groups=[
+    {key:'povinne',label:'Povinná očkování',cls:'p'},
+    {key:'zakladni',label:'Základní očkování',cls:'z'},
+    {key:'doporuceni',label:'Další doporučení a rizika',cls:'d'}
+  ];
+
+  const sections=groups.map(group=>{
+    const list=items.filter(item=>item.category===group.key);
+    if(!list.length)return '';
+    return `<section class="route-group">
+      <p class="sl ${group.cls}">${esc(group.label)}</p>
+      <div class="pills">${list.map(item=>routeItemHtml(item,total)).join('')}</div>
+    </section>`;
+  }).join('');
+
+  const missingNote=missing.length
+    ? `<p class="route-missing">Pro ${esc(missing.map(i=>i.name).join(', '))} zatím nemáme cestovní doporučení, do souhrnu se proto nepočítají.</p>`
+    : '';
+
+  panel.innerHTML=`<div class="route-head">
+    <div>
+      <p class="route-kicker">Souhrn trasy</p>
+      <h2>${esc(infos.map(i=>i.name).join(' → '))}</h2>
+    </div>
+    <span class="route-badge">${esc(countDestinations(infos.length))}</span>
+  </div>
+  <p class="route-intro">Sloučená doporučení pro všechny zastávky. Číslo u položky říká, kolika destinací z trasy se týká — co platí jen pro jednu zastávku, je stejně potřeba řešit před cestou.</p>
+  ${missingNote}
+  ${sections||'<p class="route-missing">Pro zastávky v trase se zatím nepodařilo načíst žádná doporučení.</p>'}
+  <div class="route-actions">
+    <a class="bmore" href="https://www.ockovacicentrum.cz/cz/kde-ockujeme" target="_blank" rel="noopener noreferrer">Najít očkovací centrum</a>
+    <button class="bmore secondary" type="button" data-route-clear>Vymazat trasu</button>
+  </div>
+  ${consultationNoteHtml()}`;
+
+  panel.querySelector('[data-route-clear]')?.addEventListener('click',clearRoute);
 }
 
 /* ── Panel ── */
@@ -2691,10 +2908,110 @@ function selectCountry(numId){
 /* ── Vyhledávání ── */
 let sidx=[],ddAct=-1;
 
+/* ── Vyhledávání ──
+   Čeština se skloňuje, takže „do Thajska“, „v Keni“ nebo „Vietnamu“ jsou
+   běžnější vstup než základní tvar. Porovnáváme proto zjednodušené kmeny
+   a tolerujeme jeden překlep. */
+function searchStem(value){
+  let t=slugKey(value);
+  if(t.length<4)return t;
+  t=t.replace(/(ovia|ovi|ove|ami|ach|ich|ych|em|em)$/,'');
+  t=t.replace(/(sko|ska|sku|ske|ski|cku|cku)$/,'sk');
+  t=t.replace(/(ie|ii|ii)$/,'i');
+  t=t.replace(/[aeiouy]+$/,'');
+  return t||slugKey(value);
+}
+
+/* Levenshteinova vzdálenost s předčasným ukončením – hledáme jen ≤ max. */
+function editDistanceWithin(a,b,max=1){
+  if(Math.abs(a.length-b.length)>max)return max+1;
+  let prev=Array.from({length:b.length+1},(_,i)=>i);
+  for(let i=1;i<=a.length;i++){
+    const cur=[i];
+    let best=i;
+    for(let j=1;j<=b.length;j++){
+      const cost=a[i-1]===b[j-1]?0:1;
+      cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+cost);
+      if(cur[j]<best)best=cur[j];
+    }
+    if(best>max)return max+1;
+    prev=cur;
+  }
+  return prev[b.length];
+}
+
+function searchTokens(value){
+  return slugKey(value).split('-').filter(Boolean);
+}
+
 function buildIdx(){
   const a=[];
-  FI.forEach((v,k)=>a.push({nid:k,name:v.name,has:v.has,search:v.search||v.name}));
+  FI.forEach((v,k)=>{
+    const haystack=v.search||v.name;
+    a.push({
+      nid:k,
+      name:v.name,
+      has:v.has,
+      search:slugKey(haystack),
+      tokens:unique(searchTokens(haystack)),
+      stems:unique(searchTokens(haystack).map(searchStem)),
+      nameStem:searchStem(v.name)
+    });
+  });
   return a.sort((a,b)=>a.name.localeCompare(b.name,'cs'));
+}
+
+/* Skóre: čím nižší, tím lepší shoda. null = neshoda. */
+function searchScore(entry,queryKey,queryStems){
+  if(entry.search.startsWith(queryKey))return 0;
+  if(entry.search.includes(queryKey))return 1;
+
+  /* Krátká slova („do“, „na“, „a“) by jinak vytáhla půlku seznamu. */
+  let best=null;
+  queryStems.forEach(qs=>{
+    if(qs.length<3)return;
+    entry.stems.forEach(stem=>{
+      if(stem===qs){best=Math.min(best??9,2);return;}
+      if(qs.length>=4&&(stem.startsWith(qs)||qs.startsWith(stem))){best=Math.min(best??9,3);return;}
+      if(qs.length>=4&&editDistanceWithin(stem,qs,1)<=1)best=Math.min(best??9,4);
+    });
+  });
+  return best;
+}
+
+function regionLabel(key){
+  if(typeof REGION_LABELS!=='undefined'&&REGION_LABELS[key])return REGION_LABELS[key];
+  return String(key||'').replace(/-/g,' ');
+}
+
+function regionMatch(queryKey){
+  if(typeof REGION_ALIASES==='undefined')return null;
+  const direct=REGION_ALIASES[queryKey]?queryKey:null;
+  const viaSynonym=(typeof REGION_SYNONYMS!=='undefined'&&REGION_SYNONYMS[queryKey])||null;
+  let key=direct||viaSynonym;
+  if(!key){
+    const stem=searchStem(queryKey);
+    key=Object.keys(REGION_ALIASES).find(k=>searchStem(k)===stem)||null;
+  }
+  if(!key)return null;
+  const slugs=new Set((REGION_ALIASES[key]||[]).map(slugKey));
+  const ids=[];
+  FI.forEach((info,id)=>{
+    if(slugs.has(slugKey(info.slug))||slugs.has(slugKey(info.name)))ids.push(normId(id));
+  });
+  return ids.length?{key,ids}:null;
+}
+
+function diseaseMatchForQuery(queryKey){
+  const direct=toDiseaseKey(queryKey);
+  if(direct)return direct;
+  const stem=searchStem(queryKey);
+  if(stem.length<4)return null;
+  return Object.keys(DISEASES).find(key=>{
+    const cfg=DISEASES[key];
+    const candidates=[cfg.label,...(cfg.aliases||[])].map(searchStem);
+    return candidates.some(c=>c===stem||c.startsWith(stem)&&stem.length>=5);
+  })||null;
 }
 
 function runSearch(q){
@@ -2703,17 +3020,46 @@ function runSearch(q){
   q=q.trim();
   clr.classList.toggle('on',q.length>0);
   if(!q){dd.classList.remove('open');ddAct=-1;return;}
+
   const ql=slugKey(q);
-  const hits=sidx.filter(x=>slugKey(x.search).includes(ql)).slice(0,10);
-  if(!hits.length){
-    dd.innerHTML='<div class="ddempty">Žádná shoda – zkuste jiný název</div>';
+  const queryStems=unique(searchTokens(q).map(searchStem));
+
+  const hits=sidx
+    .map(entry=>({entry,score:searchScore(entry,ql,queryStems)}))
+    .filter(x=>x.score!==null&&x.score!==undefined)
+    .sort((a,b)=>a.score-b.score||(b.entry.has-a.entry.has)||a.entry.name.localeCompare(b.entry.name,'cs'))
+    .slice(0,10)
+    .map(x=>x.entry);
+
+  /* Zkratky: název nemoci zapne filtr, název regionu vybere jeho destinace. */
+  const diseaseKey=diseaseMatchForQuery(ql);
+  const region=regionMatch(ql);
+  const shortcuts=[];
+  if(diseaseKey){
+    shortcuts.push(`<div class="ddi ddi-action" data-action-disease="${esc(diseaseKey)}" role="option" aria-selected="false">
+      <span class="ddot ddot-action" aria-hidden="true">⌖</span>
+      <span class="ddn">Zapnout filtr: ${esc(DISEASES[diseaseKey].label)}</span>
+      <span class="ddbadge">Filtr nemoci</span>
+    </div>`);
+  }
+  if(region){
+    shortcuts.push(`<div class="ddi ddi-action" data-action-region="${esc(region.key)}" role="option" aria-selected="false">
+      <span class="ddot ddot-action" aria-hidden="true">◎</span>
+      <span class="ddn">Zobrazit region: ${esc(regionLabel(region.key))}</span>
+      <span class="ddbadge">${esc(countDestinations(region.ids.length))}</span>
+    </div>`);
+  }
+
+  if(!hits.length&&!shortcuts.length){
+    dd.innerHTML='<div class="ddempty">Žádná shoda – zkuste jiný název, třeba „Vietnam“, „Karibik“ nebo „malárie“.</div>';
     dd.classList.add('open');ddAct=-1;return;
   }
-  dd.innerHTML=hits.map((h,i)=>
+
+  dd.innerHTML=shortcuts.join('')+hits.map(h=>
     `<div class="ddi" data-nid="${h.nid}" role="option" aria-selected="false">
       <span class="ddot" style="background:${h.has?MC.has:MC.none}"></span>
       <span class="ddn">${esc(h.name)}</span>
-      ${h.has?'<span class="ddbadge">Data dostupná</span>':''}
+      ${h.has?'<span class="ddbadge">Máme doporučení</span>':''}
     </div>`
   ).join('');
   dd.classList.add('open');
@@ -2721,9 +3067,32 @@ function runSearch(q){
   dd.querySelectorAll('.ddi').forEach(el=>{
     el.addEventListener('mousedown',e=>{
       e.preventDefault();
+      if(el.dataset.actionDisease){
+        document.getElementById('av-search').value='';
+        clr.classList.remove('on');
+        dd.classList.remove('open');
+        setDiseaseFilter(el.dataset.actionDisease);
+        return;
+      }
+      if(el.dataset.actionRegion){
+        dd.classList.remove('open');
+        showRegion(el.dataset.actionRegion);
+        return;
+      }
       selectCountry(normId(el.dataset.nid));
     });
   });
+}
+
+/* Region není destinace – jeho výběrem naplníme trasu, která už umí
+   zobrazit souhrn doporučení přes více destinací. */
+function showRegion(key){
+  const region=regionMatch(slugKey(key));
+  if(!region)return;
+  const input=document.getElementById('av-search');
+  if(input)input.value='';
+  document.getElementById('av-clr')?.classList.remove('on');
+  setRoute(region.ids.filter(id=>FI.get(normId(id))?.has));
 }
 
 function setupSearch(){
@@ -2816,7 +3185,7 @@ function featureId(d){
 /* ── Sdílení stavu přes URL ──
    Adresa nese vybraný filtr, kategorii a destinaci, takže jde poslat odkaz
    rovnou na konkrétní pohled. Ostatní parametry (admin, debug) zůstávají. */
-const URL_PARAM={disease:'filtr',facet:'kategorie',destination:'zeme'};
+const URL_PARAM={disease:'filtr',facet:'kategorie',destination:'zeme',route:'trasa'};
 let urlStateReady=false;
 
 function destinationShareKey(info){
@@ -2860,6 +3229,10 @@ function updateUrlState(){
     if(destination)params.set(URL_PARAM.destination,destination);
     else params.delete(URL_PARAM.destination);
 
+    if(routeIds.length){
+      params.set(URL_PARAM.route,routeInfos().map(destinationShareKey).join(','));
+    }else params.delete(URL_PARAM.route);
+
     history.replaceState(null,'',url.toString());
   }catch(e){
     /* Sdílení odkazu je doplněk, nesmí shodit zbytek aplikace. */
@@ -2871,6 +3244,7 @@ async function applyStateFromUrl(){
   const disease=params.get(URL_PARAM.disease);
   const facet=params.get(URL_PARAM.facet);
   const destination=params.get(URL_PARAM.destination);
+  const route=params.get(URL_PARAM.route);
 
   /* Parametr filtr může nést i kombinaci: ?filtr=malaria,yellow-fever */
   const diseaseKeys=String(disease||'').split(',').map(k=>k.trim()).filter(k=>DISEASES[k]);
@@ -2889,6 +3263,10 @@ async function applyStateFromUrl(){
         if(primaryDisease==='yellow-fever')setYellowFeverFacet(facet);
         else if(primaryDisease==='dengue')setDengueFacet(facet);
       }
+    }
+    if(route){
+      const ids=route.split(',').map(k=>findDestinationByShareKey(k)).filter(id=>id!==null&&id!==undefined);
+      if(ids.length)setRoute(ids);
     }
     if(destination){
       const id=findDestinationByShareKey(destination);
@@ -3495,20 +3873,20 @@ async function initMapInternal(){
     .attr('class','country')
     .attr('d',pg)
     .attr('fill',d=>bf(d))
-    .attr('stroke',MC.brd)
-    .attr('stroke-width',.45)
+    .attr('stroke',d=>strokeForId(featureId(d)))
+    .attr('stroke-width',d=>strokeWidthForId(featureId(d)))
     .attr('vector-effect','non-scaling-stroke')
     .attr('data-id',d=>featureId(d))
     .style('cursor','pointer')
     .on('mouseover',function(e,d){
       if(this===selEl)return;
-      d3.select(this).attr('fill',hoverColorForId(featureId(d))).attr('stroke',MC.brdH).attr('stroke-width',.85);
+      d3.select(this).attr('fill',hoverColorForId(featureId(d))).attr('stroke',strokeForId(featureId(d),{hover:true})).attr('stroke-width',strokeWidthForId(featureId(d),{hover:true}));
       const i=FI.get(featureId(d));
       if(i){hl.textContent=i.name;hl.classList.add('on');}
     })
     .on('mouseout',function(e,d){
       if(this===selEl)return;
-      d3.select(this).attr('fill',bf(d)).attr('stroke',MC.brd).attr('stroke-width',.45);
+      d3.select(this).attr('fill',bf(d)).attr('stroke',strokeForId(featureId(d))).attr('stroke-width',strokeWidthForId(featureId(d)));
       hl.classList.remove('on');
     })
     .on('click',function(e,d){

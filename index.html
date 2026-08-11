@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mapa očkování a zdravotních rizik · Avenier</title>
 <link rel="stylesheet" href="assets/css/fonts.css?v=24.1">
-<link rel="stylesheet" href="assets/css/map.css?v=24.4">
+<link rel="stylesheet" href="assets/css/map.css?v=24.5">
 </head>
 <body class="oc-map-page">
 
@@ -123,6 +123,8 @@
   </div>
 </div>
 
+<div class="route-bar" id="route-bar" aria-live="polite" hidden></div>
+
 <main class="main">
   <div id="mw">
     <svg id="av-map"></svg>
@@ -138,6 +140,7 @@
     </div>
   </div>
   <div id="filter-results" class="filter-results" aria-live="polite"></div>
+  <section id="route-panel" class="route-panel" aria-label="Souhrn trasy" hidden></section>
   <div id="pnl"></div>
   <div class="leg" id="map-legend" aria-live="polite"></div>
   <div class="dbg" id="debug-panel"></div>
@@ -146,7 +149,7 @@
 
 <script src="assets/vendor/d3.min.js?v=24.1"></script>
 <script src="assets/vendor/topojson.min.js?v=24.1"></script>
-<script src="assets/js/config.js?v=24.4"></script>
-<script src="assets/js/app.js?v=24.4"></script>
+<script src="assets/js/config.js?v=24.5"></script>
+<script src="assets/js/app.js?v=24.5"></script>
 </body>
 </html>

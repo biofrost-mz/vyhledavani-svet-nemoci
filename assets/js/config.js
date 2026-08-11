@@ -41,7 +41,11 @@ const OV={"Bosnia and Herzegovina":"bosnia-and-herzegovina","Burkina Faso":"burk
 
 /* `none` (bez detailu) a `dim` (neodpovídá filtru) byly téměř totožné odstíny.
    Rozestup je záměrně větší, aby legenda pod mapou dávala smysl. */
-const MC={ocean:'#0d2040',none:'#2f4569',has:'#78be20',hov:'#5fa018',sel:'#006778',selB:'rgba(170,235,255,0.85)',dim:'#63788d',brd:'rgba(255,255,255,0.24)',brdH:'rgba(255,255,255,0.62)',grat:'rgba(255,255,255,0.055)'};
+/* `has` = destinace s doporučeními bez aktivního filtru. Záměrně je to stejný
+   neutrální odstín jako `dim` (nevyhovuje filtru): barva v mapě má nést jediný
+   význam – „tuhle destinaci filtr vybral“. Bez filtru tedy mapa nesvítí.
+   `none` (bez doporučení) zůstává tmavší, aby šla odlišit. */
+const MC={ocean:'#0d2040',none:'#2f4569',has:'#63788d',hov:'#7d92a6',sel:'#006778',selB:'rgba(170,235,255,0.85)',dim:'#63788d',brd:'rgba(255,255,255,0.24)',brdH:'rgba(255,255,255,0.62)',grat:'rgba(255,255,255,0.055)'};
 
 const API_ALIAS={
   20:['andorra'],
@@ -270,6 +274,54 @@ const REGIONAL_DESTINATION_SLUGS=[
   'portoriko','reunion','saint-barthelemy','saint-martin','sardinie','sicilie',
   'sint-eustatius','sint-maarten','tasmanie','turks-a-caicos','zanzibar','zapadni-sahara'
 ];
+
+/* Regiony, které lidé hledají, ale nejsou to destinace v datech.
+   Klíč se porovnává po stejné normalizaci jako názvy destinací. */
+const REGION_ALIASES={
+  'karibik':['kuba','dominikanska-republika','jamajka','bahamy','barbados','svata-lucie','antigua-a-barbuda','grenada','dominika','svaty-vincenc-a-grenadiny','svaty-krystof-a-nevis','trinidad-a-tobago','aruba','curacao','bonaire','portoriko','americke-panenske-ostrovy','britske-panenske-ostrovy','kajmanske-ostrovy','turks-a-caicos','anguilla','montserrat','martinik','guadeloupe','saint-martin','sint-maarten','saint-barthelemy','haiti','belize'],
+  'jihovychodni-asie':['thajsko','vietnam','kambodza','laos','myanmar-barma','malajsie','singapur','indonesie','filipiny','brunej','vychodni-timor','bali','borneo'],
+  'blizky-vychod':['spojene-arabske-emiraty','katar','saudska-arabie','oman','jordansko','izrael','libanon','kuvajt','bahrajn','irak','iran','syrie','jemen'],
+  'balkan':['chorvatsko','srbsko','cerna-hora','bosna-a-hercegovina','albanie','severni-makedonie','bulharsko','recko','slovinsko','kosovo','rumunsko'],
+  'skandinavie':['norsko','svedsko','dansko','finsko','island'],
+  'pobalti':['estonsko','lotyssko','litva'],
+  'stredni-amerika':['guatemala','belize','honduras','salvador','nikaragua','kostarika','panama'],
+  'jizni-amerika':['brazilie','argentina','chile','peru','kolumbie','bolivie','ekvador','venezuela','paraguay','uruguay','guyana','surinam','francouzska-guyana'],
+  'zapadni-afrika':['senegal','gambie','guinea','guinea-bissau','sierra-leone','liberie','pobrezi-slonoviny','ghana','togo','benin','nigerie','niger','burkina-faso','mali','mauritanie','kapverdy'],
+  'vychodni-afrika':['kena','tanzanie','uganda','rwanda','burundi','etiopie','eritrea','somalsko','dzibutsko','jizni-sudan','zanzibar'],
+  'severni-afrika':['egypt','maroko','tunisko','alzirsko','libye','sudan'],
+  'oceanie':['australie','novy-zeland','fidzi','vanuatu','samoa','tonga','papua-nova-guinea','salamounovy-ostrovy','nova-kaledonie','francouzska-polynesie','kiribati','tuvalu','nauru','palau','mikronesie','marshallovy-ostrovy'],
+  'kanarske-ostrovy':['kanarske-ostrovy'],
+  'indocina':['vietnam','laos','kambodza','thajsko','myanmar-barma']
+};
+
+/* Jak se region pojmenuje v rozhraní. */
+const REGION_LABELS={
+  'karibik':'Karibik',
+  'jihovychodni-asie':'Jihovýchodní Asie',
+  'blizky-vychod':'Blízký východ',
+  'balkan':'Balkán',
+  'skandinavie':'Skandinávie',
+  'pobalti':'Pobaltí',
+  'stredni-amerika':'Střední Amerika',
+  'jizni-amerika':'Jižní Amerika',
+  'zapadni-afrika':'Západní Afrika',
+  'vychodni-afrika':'Východní Afrika',
+  'severni-afrika':'Severní Afrika',
+  'oceanie':'Oceánie',
+  'kanarske-ostrovy':'Kanárské ostrovy',
+  'indocina':'Indočína'
+};
+
+/* Lidové názvy regionů → klíč v REGION_ALIASES. */
+const REGION_SYNONYMS={
+  'karibiku':'karibik','karibske-ostrovy':'karibik','karibska-oblast':'karibik',
+  'jv-asie':'jihovychodni-asie','asie-jihovychodni':'jihovychodni-asie',
+  'stredni-vychod':'blizky-vychod','arabsky-poloostrov':'blizky-vychod',
+  'skandinavske-zeme':'skandinavie','severska-evropa':'skandinavie',
+  'latinska-amerika':'jizni-amerika','jizni-america':'jizni-amerika',
+  'subsaharska-afrika':'zapadni-afrika',
+  'tichomori':'oceanie','pacifik':'oceanie','oceanii':'oceanie'
+};
 
 const DISEASES={
   'yellow-fever':{

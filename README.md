@@ -246,6 +246,29 @@ Opravy nalezené při systematickém průchodu aplikací.
 - výběr jedné nemoci i tlačítko „Všechny destinace" kombinaci ruší, takže původní chování filtrů zůstává beze změny,
 - statické assety mají verzovaný cache-buster `v=24.4`.
 
+## v24.5 – trasa, chytřejší vyhledávání a klidný výchozí stav
+
+**Trasa přes více destinací**
+- destinaci lze přidat do trasy tlačítkem v její kartě; trasa se drží v pruhu nad mapou s očíslovanými zastávkami,
+- souhrn trasy sloučí doporučení všech zastávek a u každé položky uvádí, kolika destinací se týká (`3/3`),
+- co je někde povinné, nespadne mezi doporučená — rozhoduje nejsilnější kategorie napříč zastávkami,
+- destinace bez cestovních doporučení se do souhrnu nepočítají a text to říká,
+- trasa se v mapě kreslí **obrysem**, ne výplní, takže je čitelná zároveň s aktivním filtrem,
+- trasu nese i sdílený odkaz (`?trasa=kena,tanzanie,zanzibar`), maximum je 12 zastávek.
+
+**Vyhledávání**
+- zvládá české skloňování („Vietnamu", „do Thajska", „Keni") díky porovnávání zjednodušených kmenů,
+- toleruje jeden překlep („Thajko" → Thajsko),
+- zná regiony („Karibik", „Jihovýchodní Asie", „Balkán" a další) a nabídne je jako trasu,
+- název nemoci nabídne rovnou zapnutí filtru („malárie" → *Zapnout filtr: Malárie*),
+- krátká slova jako „do" nebo „na" už netahají do výsledků nesouvisející destinace.
+
+**Výchozí stav mapy**
+- bez filtru mapa nesvítí — destinace s doporučeními mají stejný neutrální odstín jako ty, které neodpovídají filtru,
+- barva v mapě tak nese jediný význam: *tuhle destinaci filtr vybral*,
+- území bez cestovních doporučení zůstávají tmavší, takže je legenda pořád rozliší,
+- statické assety mají verzovaný cache-buster `v=24.5`.
+
 ### Známá omezení
 - aplikaci je potřeba servírovat přes HTTP(S); při otevření přes `file://` selže načtení dat kvůli CORS,
 - filtry žloutenky A i B (230/230), meningokoka (229), spalniček (228) a chřipky (226) zvýrazní téměř celou mapu; upozorňuje na to poznámka pod výsledky,

@@ -139,7 +139,21 @@ assert(app.includes("const COMBO_COLOR="),'Kombinace nemá vlastní barvu v map�
 assert(app.includes('opts.combo')&&app.includes('combinationLabel()'),'Export nezohledňuje kombinaci filtrů.');
 
 /* Sdílení stavu přes URL. */
-assert(/URL_PARAM=\{disease:'filtr',facet:'kategorie',destination:'zeme'\}/.test(app),'Chybí parametry pro sdílení stavu v URL.');
+assert(/URL_PARAM=\{disease:'filtr',facet:'kategorie',destination:'zeme',route:'trasa'\}/.test(app),'Chybí parametry pro sdílení stavu v URL.');
+
+/* Trasa přes více destinací. */
+assert(app.includes('function setRoute')&&app.includes('function toggleRouteDestination')&&app.includes('function renderRoutePanel'),'Chybí logika trasy.');
+assert(html.includes('id="route-bar"')&&html.includes('id="route-panel"'),'V rozhraní chybí prvky trasy.');
+assert(app.includes("const ROUTE_COLOR=")&&app.includes('function strokeForId'),'Trasa se nekreslí jako obrys nad filtrem.');
+assert(app.includes('ROUTE_CATEGORY_ORDER'),'Souhrn trasy neřeší nejsilnější kategorii položky.');
+
+/* Vyhledávání musí zvládnout skloňování, překlepy, regiony a názvy nemocí. */
+assert(app.includes('function searchStem')&&app.includes('function editDistanceWithin'),'Vyhledávání nemá kmeny ani toleranci překlepů.');
+assert(config.includes('const REGION_ALIASES=')&&app.includes('function regionMatch'),'Vyhledávání nezná regiony.');
+assert(app.includes('function diseaseMatchForQuery'),'Vyhledávání nenabízí filtr podle názvu nemoci.');
+
+/* Bez filtru nesmí mapa svítit barvou, která jinde znamená „vyhovuje filtru“. */
+assert(/has:'#63788d'/.test(config)&&/dim:'#63788d'/.test(config),'Výchozí stav mapy nepoužívá neutrální barvu.');
 assert(app.includes('function applyStateFromUrl')&&app.includes('function updateUrlState'),'Chybí obnovení nebo zápis stavu do URL.');
 assert(app.includes("data-mi-action=\"share\"")&&app.includes('function copyShareLink'),'Chybí tlačítko pro zkopírování odkazu.');
 

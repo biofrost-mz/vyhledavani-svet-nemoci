@@ -1617,3 +1617,110 @@ a:hover{color:var(--oc-green)}
   .fcombo-clear{margin-left:0}
   .fcombo-hint{flex-basis:100%}
 }
+
+
+/* ==== v24.5 trasa přes více destinací + lepší vyhledávání ==== */
+.route-bar{
+  width:auto;
+  max-width:var(--container-max);
+  margin:10px auto 0;
+  padding:11px 14px;
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:9px 12px;
+  border-radius:16px;
+  background:linear-gradient(135deg,rgba(242,183,5,.13),rgba(255,255,255,.96));
+  border:1px solid rgba(242,183,5,.42);
+  box-shadow:0 10px 26px rgba(0,0,0,.045);
+}
+.route-bar[hidden]{display:none!important}
+.route-bar-limit{animation:routeShake .45s ease}
+@keyframes routeShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+.route-label{
+  font-family:'Saira',sans-serif;font-size:11px;font-weight:700;
+  letter-spacing:.12em;text-transform:uppercase;color:#7a5a00;
+}
+.route-chips{display:flex;flex-wrap:wrap;gap:6px;flex:1 1 260px}
+.route-chip{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:5px 6px 5px 8px;border-radius:999px;
+  background:#fff;border:1px solid rgba(242,183,5,.5);
+  font-family:'Saira',sans-serif;font-size:12px;font-weight:600;color:#4a5a55;
+}
+.route-chip b{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:18px;height:18px;border-radius:999px;
+  background:rgba(242,183,5,.28);color:#6d4f00;font-size:10px;
+}
+.route-chip button{
+  width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;
+  border:none;border-radius:999px;background:rgba(0,0,0,.05);
+  color:#6b5a2a;font-size:14px;line-height:1;cursor:pointer;
+}
+.route-chip button:hover{background:rgba(0,0,0,.10)}
+.route-count{
+  font-family:'Saira',sans-serif;font-size:12px;font-weight:700;color:#6d4f00;
+  padding:5px 11px;border-radius:999px;background:rgba(242,183,5,.22);
+}
+.route-clear{
+  border:1px solid rgba(0,103,120,.2);background:#fff;border-radius:999px;
+  padding:7px 13px;font-family:'Saira',sans-serif;font-size:11.5px;font-weight:700;
+  color:var(--oc-blue);cursor:pointer;
+}
+.route-clear:hover{background:rgba(0,103,120,.06)}
+
+.route-panel{
+  margin-top:14px;padding:24px 26px 20px;
+  border-radius:24px;
+  border:1px solid rgba(242,183,5,.38);
+  background:radial-gradient(circle at right top,rgba(242,183,5,.13) 0%,rgba(255,255,255,0) 46%),linear-gradient(135deg,#fff,#fffdf6);
+  box-shadow:0 18px 40px rgba(0,103,120,.07);
+}
+.route-panel[hidden]{display:none!important}
+.route-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:10px}
+.route-kicker{
+  font-family:'Saira',sans-serif;font-size:10px;font-weight:700;
+  letter-spacing:.14em;text-transform:uppercase;color:#9a7400;margin-bottom:4px;
+}
+.route-head h2{
+  font-family:'Saira',sans-serif;font-size:26px;font-weight:600;
+  line-height:1.2;color:var(--oc-blue);letter-spacing:-.02em;
+}
+.route-badge{
+  font-family:'Saira',sans-serif;font-size:12px;font-weight:700;color:#6d4f00;
+  background:rgba(242,183,5,.22);border-radius:999px;padding:7px 13px;white-space:nowrap;
+}
+.route-intro,.route-missing,.route-loading{font-size:13px;line-height:1.65;color:var(--oc-muted);margin:0 0 14px}
+.route-missing{
+  padding:11px 13px;border-radius:14px;
+  background:rgba(202,0,93,.05);border:1px solid rgba(202,0,93,.18);color:#7a3350;
+}
+.route-group{margin-bottom:6px}
+.route-item{display:inline-flex;align-items:center;gap:7px}
+.route-item-count{
+  font-family:'Saira',sans-serif;font-size:10px;font-weight:700;
+  padding:2px 6px;border-radius:999px;background:rgba(0,0,0,.06);
+}
+.route-actions{display:flex;flex-wrap:wrap;gap:9px;margin:16px 0 4px}
+
+.mi-btn.route{background:#fff;color:#6d4f00;border:1px solid rgba(242,183,5,.55)}
+.mi-btn.route:hover{background:rgba(242,183,5,.12);color:#6d4f00}
+.mi-btn.route.on{background:#F2B705;border-color:#F2B705;color:#3d2c00}
+
+.ddi-action{background:rgba(0,103,120,.045)}
+.ddi-action:hover{background:rgba(0,103,120,.09)}
+.ddot-action{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:8px;height:8px;border-radius:50%;
+  color:var(--oc-blue);font-size:11px;line-height:1;background:none;
+}
+
+@media(max-width:640px){
+  .route-bar{margin-left:12px;margin-right:12px;padding:10px;border-radius:14px;gap:8px}
+  .route-clear{margin-left:auto}
+  .route-panel{padding:18px 15px 16px;border-radius:18px}
+  .route-head{flex-direction:column;gap:8px}
+  .route-head h2{font-size:21px}
+  .route-actions .bmore{width:100%;justify-content:center}
+}
