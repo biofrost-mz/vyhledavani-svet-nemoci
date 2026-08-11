@@ -31,8 +31,6 @@
 </head>
 <body class="oc-map-page">
 
-<div id="print-header" class="print-header" aria-hidden="true"></div>
-
 <header class="hd">
   <div class="hd-logo">AVENIER</div>
   <div><h1 class="hd-title">Mapa očkování a zdravotních rizik</h1>
@@ -48,6 +46,31 @@
     <h2 id="coverage-title">Destinace v mapě</h2>
     <div id="coverage-content"></div>
     <button class="coverage-confirm" type="button">Rozumím</button>
+  </div>
+</dialog>
+
+<dialog id="route-limit-dialog" class="route-limit-dialog" aria-labelledby="route-limit-title">
+  <div class="route-limit-dialog-card">
+    <button class="route-limit-close" type="button" aria-label="Zavřít upozornění">×</button>
+    <div class="route-limit-icon" aria-hidden="true">5</div>
+    <div>
+      <div class="route-limit-eyebrow">Trasa je plná</div>
+      <h2 id="route-limit-title">Do trasy lze přidat nejvýše 5 destinací</h2>
+      <p>Další destinaci už nelze přidat. Pokud chcete trasu změnit, nejprve jednu z vybraných destinací odeberte a potom přidejte jinou.</p>
+    </div>
+    <button class="route-limit-confirm" type="button">Rozumím</button>
+  </div>
+</dialog>
+
+<dialog id="route-item-dialog" class="route-item-dialog" aria-labelledby="route-item-dialog-title">
+  <div class="route-item-dialog-card">
+    <button class="route-item-dialog-close" type="button" aria-label="Zavřít detail doporučení">×</button>
+    <div class="route-item-dialog-eyebrow">Doporučení v trase</div>
+    <h2 id="route-item-dialog-title"></h2>
+    <p class="route-item-dialog-summary" id="route-item-dialog-summary"></p>
+    <div class="route-item-dialog-groups" id="route-item-dialog-groups"></div>
+    <p class="route-item-dialog-note">Přehled ukazuje, zda je doporučení u destinace uvedeno. Nehodnotí aktuální výskyt nemoci ani individuální vhodnost očkování.</p>
+    <div class="route-item-dialog-actions" id="route-item-dialog-actions"></div>
   </div>
 </dialog>
 
@@ -81,7 +104,8 @@
 
 <section class="info-hub info-hub-full" aria-label="Důležité upozornění">
   <div class="legal-alert">
-    <strong>Důležité upozornění:</strong> Doporučení se může lišit podle délky pobytu, konkrétní oblasti, stylu cestování a zdravotního stavu cestovatele. Tato aplikace nenahrazuje vyšetření ani doporučení lékaře a slouží pouze jako orientační přehled.
+    <strong>Výsledek je pouze orientační.</strong>
+    <span>Doporučení se může lišit podle zdravotního stavu, věku, délky a typu pobytu, konkrétní oblasti, aktuální situace v destinaci i dalších okolností cesty. Aplikace nenahrazuje lékařské vyšetření ani osobní konzultaci. Konečné doporučení a rozhodnutí o očkování vždy stanoví ordinující lékař.</span>
   </div>
 </section>
 
@@ -128,14 +152,14 @@
         <span class="dctrl"><button class="fbtn" data-disease="chagas" type="button">Chagasova nemoc</button><a class="dlink" href="https://www.ockovacicentrum.cz/cz/americka-trypanozomiaza-chagasova-nemoc" target="_blank" rel="noopener noreferrer" aria-label="Otevřít detail nemoci: Chagasova nemoc">↗</a></span>
       </div>
     </details>
-    <button class="fbtn combine" id="filter-combine" type="button" aria-pressed="false" hidden>+ Kombinovat s další nemocí</button>
+    <button class="fbtn combine" id="filter-combine" type="button" aria-pressed="false" hidden><span class="combine-icon" aria-hidden="true"></span><span>Kombinovat s další nemocí</span></button>
     <div class="fcombo" id="filter-combo" aria-live="polite" hidden></div>
     <span class="fstatus" id="filter-status">Vyberte nemoc nebo riziko a mapa zvýrazní relevantní destinace.</span>
     <div class="fbar" id="filter-loader"><span></span></div>
   </div>
 </div>
 
-<div class="quick" aria-label="Oblíbené destinace">
+<div class="quick" aria-label="Oblíbené destinace" hidden>
   <span class="quick-label">Oblíbené destinace</span>
   <div class="quick-list">
     <button class="qchip" data-q="Egypt" type="button">Egypt</button>

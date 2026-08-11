@@ -949,7 +949,7 @@ function externalDiseaseSectionHtml(info,data){
 }
 
 function consultationNoteHtml(){
-  return `<aside class="consult-note"><strong>Doporučení přizpůsobené vaší cestě</strong><span>Konkrétní ochrana závisí na trase, délce pobytu, způsobu cestování i zdravotním stavu. Naši specialisté s vámi projdou očkování i další rizika osobně.</span></aside>`;
+  return `<aside class="consult-note" role="note"><strong>Konečné doporučení určí lékař</strong><span>Tento výsledek je pouze orientační. Vhodné očkování a další ochranu stanoví ordinující lékař podle zdravotního stavu, věku, trasy, typu a délky pobytu i aktuální situace v destinaci.</span></aside>`;
 }
 
 /* Místní riziko žluté zimnice = sjednocení obou zdrojů.
@@ -2366,7 +2366,9 @@ function renderCombineUi(){
     toggle.hidden=!hasFilter;
     toggle.classList.toggle('on',combineMode);
     toggle.setAttribute('aria-pressed',String(combineMode));
-    toggle.textContent=combineMode?'Hotovo':'+ Kombinovat s další nemocí';
+    toggle.innerHTML=combineMode
+      ? '<span class="combine-icon done" aria-hidden="true">✓</span><span>Výběr dokončen</span>'
+      : '<span class="combine-icon" aria-hidden="true"></span><span>Kombinovat s další nemocí</span>';
   }
 
   if(!summary)return;
@@ -2577,6 +2579,14 @@ function renderMapInfo(info,data=null,loading=false){
       detailBadgeHtml('mi-badge z',countWithNoun(nz,...COUNT_FORMS.basic),'zakladni','mi-section')+
       detailBadgeHtml('mi-badge d',countWithNoun(nd,...COUNT_FORMS.recommended),'doporuceni','mi-section')
     : (info.has?`<span class="mi-badge">Načítám doporučení…</span>`:`<span class="mi-badge">Bez cestovních doporučení</span>`);
+  const routeIndex=routeIds.findIndex(id=>normId(id)===normId(info.id));
+  const routeNav=routeIndex>=0&&routeIds.length>1
+    ? `<div class="mi-route-nav" aria-label="Pohyb mezi destinacemi v trase">
+        <button type="button" data-mi-action="route-prev" ${routeIndex===0?'disabled':''} aria-label="Předchozí destinace v trase">‹</button>
+        <span>${routeIndex+1} z ${routeIds.length} destinací</span>
+        <button type="button" data-mi-action="route-next" ${routeIndex===routeIds.length-1?'disabled':''} aria-label="Další destinace v trase">›</button>
+      </div>`
+    : '';
   box.innerHTML=`<div class="mi-head">
     <div>
       <div class="mi-label">Vybraná destinace</div>
@@ -2584,6 +2594,7 @@ function renderMapInfo(info,data=null,loading=false){
     </div>
     <button class="mi-close" data-mi-action="close" type="button" aria-label="Zavřít">×</button>
   </div>
+  ${routeNav}
   <div class="mi-badges">${badges}</div>
   ${destinationFilterNoticeHtml(info,{action:true})}
   ${data?miniVaxList(data):''}
@@ -2620,6 +2631,12 @@ function renderMapInfo(info,data=null,loading=false){
       document.getElementById('route-panel')?.scrollIntoView({behavior:'smooth',block:'nearest'});
       return;
     }
+    if(action==='route-prev'||action==='route-next'){
+      const offset=action==='route-prev'?-1:1;
+      const targetId=routeIds[routeIndex+offset];
+      if(targetId!==undefined)selectCountry(targetId);
+      return;
+    }
     if(action==='scroll-detail'){
       scrollToPanel();
       return;
@@ -2640,7 +2657,27 @@ function clearMapInfo(){
 /* ── Trasa přes více destinací ──
    Cesta bývá vícezastávková („Keňa + Tanzanie + Zanzibar“). Trasa sjednotí
    doporučení všech zastávek a u každé položky ukáže, kolika destinací se týká. */
-const ROUTE_MAX=12;
+const ROUTE_MAX=5;
+
+function showRouteLimitMessage(){
+  const bar=document.getElementById('route-bar');
+  if(bar){
+    bar.classList.add('route-bar-limit');
+    setTimeout(()=>bar.classList.remove('route-bar-limit'),450);
+  }
+  const dialog=document.getElementById('route-limit-dialog');
+  if(dialog&&!dialog.open)dialog.showModal();
+}
+
+function setupRouteLimitDialog(){
+  const dialog=document.getElementById('route-limit-dialog');
+  if(!dialog||dialog.dataset.bound==='1')return;
+  dialog.dataset.bound='1';
+  const close=()=>dialog.close();
+  dialog.querySelector('.route-limit-close')?.addEventListener('click',close);
+  dialog.querySelector('.route-limit-confirm')?.addEventListener('click',close);
+  dialog.addEventListener('click',event=>{if(event.target===dialog)close();});
+}
 
 function routeInfos(){
   return routeIds.map(id=>FI.get(normId(id))).filter(Boolean);
@@ -2667,9 +2704,7 @@ function toggleRouteDestination(id){
     routeIds=routeIds.filter(x=>normId(x)!==nid);
   }else{
     if(routeIds.length>=ROUTE_MAX){
-      const bar=document.getElementById('route-bar');
-      bar?.classList.add('route-bar-limit');
-      setTimeout(()=>bar?.classList.remove('route-bar-limit'),1200);
+      showRouteLimitMessage();
       return;
     }
     routeIds=[...routeIds,nid];
@@ -2729,29 +2764,245 @@ function routeItemsFromDetails(entries){
         const key=slugKey(name);
         const existing=items.get(key);
         const url=item?.url||item?.www||'';
+        const destination={id:info.id,name:info.name};
         if(existing){
           if(ROUTE_CATEGORY_ORDER.indexOf(category)<ROUTE_CATEGORY_ORDER.indexOf(existing.category))existing.category=category;
-          if(!existing.destinations.includes(info.name))existing.destinations.push(info.name);
+          if(!existing.destinations.some(dest=>normId(dest.id)===normId(info.id)))existing.destinations.push(destination);
           if(!existing.url&&url)existing.url=url;
         }else{
-          items.set(key,{name,url,category,destinations:[info.name]});
+          items.set(key,{name,url,category,destinations:[destination]});
         }
       });
     });
   });
   return [...items.values()].sort((a,b)=>
-    b.destinations.length-a.destinations.length||a.name.localeCompare(b.name,'cs')
+    ROUTE_CATEGORY_ORDER.indexOf(a.category)-ROUTE_CATEGORY_ORDER.indexOf(b.category)
+    ||a.name.localeCompare(b.name,'cs')
   );
 }
 
 function routeItemHtml(item,total){
   const cls=item.category==='povinne'?'p':item.category==='zakladni'?'z':'d';
-  const title=`${item.name} · ${item.destinations.join(', ')}`;
-  const label=`${item.destinations.length}/${total}`;
-  const inner=`${esc(item.name)}<span class="route-item-count">${esc(label)}</span>`;
-  return item.url
-    ? `<a class="pill ${cls} route-item" href="${esc(item.url)}" target="_blank" rel="noopener noreferrer" title="${esc(title)}">${inner}</a>`
-    : `<span class="pill ${cls} route-item" title="${esc(title)}">${inner}</span>`;
+  const count=item.destinations.length;
+  const ids=item.destinations.map(dest=>String(normId(dest.id))).join(',');
+  return `<button class="route-item-card ${cls}" type="button" data-route-item-destinations="${esc(ids)}" data-route-item-name="${esc(item.name)}" data-route-item-category="${esc(item.category)}" data-route-item-url="${esc(item.url||'')}" aria-label="${esc(item.name)}: uvedeno pro ${count} z ${total} destinací. Zobrazit podrobnosti.">
+    <span class="route-item-name">${esc(item.name)}</span><span class="route-item-coverage">${count}/${total}</span>
+  </button>`;
+}
+
+function setupRouteItemDialog(panel){
+  const dialog=document.getElementById('route-item-dialog');
+  if(!dialog)return;
+  if(dialog.dataset.bound!=='1'){
+    dialog.dataset.bound='1';
+    const close=()=>dialog.close();
+    dialog.querySelector('.route-item-dialog-close')?.addEventListener('click',close);
+    dialog.addEventListener('click',event=>{if(event.target===dialog)close();});
+  }
+  panel?.querySelectorAll('.route-item-card[data-route-item-name]').forEach(button=>{
+    button.addEventListener('click',()=>{
+      const includedIds=new Set((button.dataset.routeItemDestinations||'').split(',').filter(Boolean));
+      const infos=routeInfos();
+      const included=infos.filter(info=>includedIds.has(String(normId(info.id))));
+      const excluded=infos.filter(info=>!includedIds.has(String(normId(info.id))));
+      const title=document.getElementById('route-item-dialog-title');
+      const summary=document.getElementById('route-item-dialog-summary');
+      const groups=document.getElementById('route-item-dialog-groups');
+      const actions=document.getElementById('route-item-dialog-actions');
+      if(title)title.textContent=button.dataset.routeItemName||'Doporučení';
+      if(summary)summary.textContent=`Doporučení je uvedeno u ${included.length} z ${infos.length} destinací v trase.`;
+      if(groups)groups.innerHTML=`<section class="route-item-dialog-group yes"><h3><span aria-hidden="true">✓</span> Doporučení uvedeno</h3><div>${included.map(info=>`<button type="button" data-route-dialog-country="${esc(info.id)}">${esc(info.name)}</button>`).join('')||'<p>Žádná destinace</p>'}</div></section>
+        <section class="route-item-dialog-group no"><h3><span aria-hidden="true">—</span> Doporučení neuvedeno</h3><div>${excluded.map(info=>`<button type="button" data-route-dialog-country="${esc(info.id)}">${esc(info.name)}</button>`).join('')||'<p>Žádná destinace</p>'}</div></section>`;
+      if(actions)actions.innerHTML=button.dataset.routeItemUrl?`<a href="${esc(button.dataset.routeItemUrl)}" target="_blank" rel="noopener noreferrer">Více informací</a>`:'';
+      groups?.querySelectorAll('[data-route-dialog-country]').forEach(country=>country.addEventListener('click',()=>{
+        dialog.close();
+        selectCountry(country.dataset.routeDialogCountry);
+      }));
+      if(!dialog.open)dialog.showModal();
+    });
+  });
+}
+
+function routeComparisonHtml(items,infos,missing){
+  if(!items.length||!infos.length)return '';
+  const missingIds=new Set((missing||[]).map(info=>String(normId(info.id))));
+  const categoryLabel={povinne:'Povinná očkování',zakladni:'Základní očkování',doporuceni:'Další doporučení a rizika'};
+  const rows=items.map(item=>{
+    const included=new Set(item.destinations.map(dest=>String(normId(dest.id))));
+    const cells=infos.map(info=>{
+      const id=String(normId(info.id));
+      const unknown=missingIds.has(id);
+      const yes=included.has(id);
+      const label=unknown?'Doporučení nejsou dostupná':yes?'Uvedeno pro tuto destinaci':'Není uvedeno pro tuto destinaci';
+      return `<td data-route-column="${esc(id)}"><span class="route-matrix-mark ${unknown?'unknown':yes?'yes':'no'}" title="${esc(`${info.name}: ${label}`)}" aria-label="${esc(label)}">${unknown?'?':yes?'✓':'—'}</span></td>`;
+    }).join('');
+    return `<tr class="route-matrix-row ${item.category}" data-route-category-rank="${ROUTE_CATEGORY_ORDER.indexOf(item.category)}" data-route-name="${esc(slugKey(item.name))}" data-route-row-destinations="${esc(item.destinations.map(dest=>String(normId(dest.id))).join(','))}" data-route-current-count="${item.destinations.length}">
+      <th scope="row"><span class="route-matrix-category ${item.category}" tabindex="0" data-tip="${esc(categoryLabel[item.category]||'Další doporučení')}" aria-label="Kategorie: ${esc(categoryLabel[item.category]||'Další doporučení')}"></span>${item.url?`<a href="${esc(item.url)}" target="_blank" rel="noopener noreferrer">${esc(item.name)}</a>`:`<span>${esc(item.name)}</span>`}</th>
+      ${cells}<td class="route-matrix-total"><strong>${item.destinations.length}/${infos.length}</strong></td>
+    </tr>`;
+  }).join('');
+  const head=infos.map(info=>`<th scope="col" data-route-column="${esc(normId(info.id))}">${esc(info.name)}</th>`).join('');
+  const filters=infos.map(info=>`<button type="button" data-route-filter-country="${esc(normId(info.id))}" aria-pressed="false">${esc(info.name)}</button>`).join('');
+  const extraCount=Math.max(0,items.length-10);
+  return `<section class="route-comparison" aria-labelledby="route-comparison-title">
+    <div class="route-comparison-head"><div><h3 id="route-comparison-title">Přehled podle destinací</h3><p>Rychlé porovnání toho, kde je jednotlivé doporučení uvedeno.</p></div>
+      <div class="route-matrix-legend"><span><i class="yes">✓</i> uvedeno</span><span><i class="no">—</i> neuvedeno</span>${missingIds.size?'<span><i class="unknown">?</i> bez údajů</span>':''}</div>
+    </div>
+    <div class="route-matrix-filters" aria-label="Filtrovat přehled podle destinací"><span>Zobrazit:</span><button type="button" data-route-filter-all aria-pressed="true">Všechny destinace</button>${filters}</div>
+    <div class="route-table-scroll" tabindex="0" aria-label="Srovnávací tabulka doporučení podle destinací">
+      <table class="route-matrix"><thead><tr><th scope="col">Očkování nebo riziko</th>${head}<th scope="col"><button class="route-summary-sort" type="button" data-route-sort-coverage aria-label="Seřadit všechny nemoci podle zastoupení">Souhrn <span aria-hidden="true">↕</span></button></th></tr></thead><tbody>${rows}</tbody></table>
+    </div>
+    <div class="route-matrix-controls">${extraCount?`<button class="route-matrix-more" type="button" data-route-matrix-more>Zobrazit všechna doporučení (${items.length})</button>`:''}<button class="route-sort-reset" type="button" data-route-sort-reset hidden>Obnovit výchozí řazení</button></div>
+  </section>`;
+}
+
+function setupRouteComparison(panel){
+  const button=panel?.querySelector('[data-route-matrix-more]');
+  const tbody=panel?.querySelector('.route-matrix tbody');
+  const sortButton=panel?.querySelector('[data-route-sort-coverage]');
+  const resetSortButton=panel?.querySelector('[data-route-sort-reset]');
+  let expanded=false;
+  let sortMode='category';
+  let sortDirection='desc';
+  const rows=()=>[...(tbody?.querySelectorAll('[data-route-row-destinations]')||[])];
+  const refreshRowVisibility=()=>{
+    const available=rows().filter(row=>row.dataset.filterHidden!=='true');
+    available.forEach((row,index)=>{
+      row.classList.toggle('route-matrix-extra',index>=10);
+      row.hidden=!expanded&&index>=10;
+    });
+    rows().filter(row=>row.dataset.filterHidden==='true').forEach(row=>{row.hidden=true;});
+    if(button){
+      button.hidden=available.length<=10;
+      button.setAttribute('aria-expanded',String(expanded));
+      button.textContent=expanded?'Zobrazit méně':`Zobrazit všechna doporučení (${available.length})`;
+    }
+  };
+  const sortRows=()=>{
+    if(!tbody)return;
+    const direction=sortDirection==='desc'?-1:1;
+    rows().sort((a,b)=>{
+      if(sortMode==='coverage'){
+        const coverage=(Number(a.dataset.routeCurrentCount)-Number(b.dataset.routeCurrentCount))*direction;
+        if(coverage)return coverage;
+      }
+      const category=Number(a.dataset.routeCategoryRank)-Number(b.dataset.routeCategoryRank);
+      if(category)return category;
+      return (a.dataset.routeName||'').localeCompare(b.dataset.routeName||'','cs');
+    }).forEach(row=>tbody.appendChild(row));
+    if(sortButton){
+      sortButton.querySelector('span').textContent=sortMode==='category'?'↕':sortDirection==='desc'?'↓':'↑';
+      sortButton.setAttribute('aria-label',sortMode==='category'?'Seřadit všechny nemoci podle zastoupení sestupně':`Řadit podle zastoupení ${sortDirection==='desc'?'vzestupně':'sestupně'}`);
+    }
+    if(resetSortButton)resetSortButton.hidden=sortMode==='category';
+    refreshRowVisibility();
+  };
+  if(button){
+    button.addEventListener('click',()=>{
+      expanded=!expanded;
+      refreshRowVisibility();
+    });
+  }
+  sortButton?.addEventListener('click',()=>{
+    if(sortMode==='category'){
+      sortMode='coverage';
+      sortDirection='desc';
+    }else sortDirection=sortDirection==='desc'?'asc':'desc';
+    sortRows();
+  });
+  resetSortButton?.addEventListener('click',()=>{
+    sortMode='category';
+    sortDirection='desc';
+    sortRows();
+  });
+  let categoryTooltip=null;
+  const hideCategoryTooltip=()=>{categoryTooltip?.remove();categoryTooltip=null;};
+  const showCategoryTooltip=trigger=>{
+    hideCategoryTooltip();
+    categoryTooltip=document.createElement('div');
+    categoryTooltip.className='route-category-tooltip';
+    categoryTooltip.setAttribute('role','tooltip');
+    categoryTooltip.textContent=trigger.dataset.tip||'';
+    document.body.appendChild(categoryTooltip);
+    const rect=trigger.getBoundingClientRect();
+    const tipRect=categoryTooltip.getBoundingClientRect();
+    const left=Math.max(8,Math.min(window.innerWidth-tipRect.width-8,rect.left+rect.width/2-tipRect.width/2));
+    const top=Math.max(8,rect.top-tipRect.height-8);
+    categoryTooltip.style.left=`${left}px`;
+    categoryTooltip.style.top=`${top}px`;
+  };
+  panel?.querySelectorAll('.route-matrix-category').forEach(marker=>{
+    marker.addEventListener('mouseenter',()=>showCategoryTooltip(marker));
+    marker.addEventListener('mouseleave',hideCategoryTooltip);
+    marker.addEventListener('focus',()=>showCategoryTooltip(marker));
+    marker.addEventListener('blur',hideCategoryTooltip);
+  });
+  const allButton=panel?.querySelector('[data-route-filter-all]');
+  const countryButtons=[...(panel?.querySelectorAll('[data-route-filter-country]')||[])];
+  if(!allButton||!countryButtons.length)return;
+  const selected=new Set();
+  const apply=()=>{
+    const all=!selected.size;
+    allButton.setAttribute('aria-pressed',String(all));
+    countryButtons.forEach(btn=>btn.setAttribute('aria-pressed',String(selected.has(btn.dataset.routeFilterCountry))));
+    panel.querySelectorAll('[data-route-column]').forEach(cell=>{cell.hidden=!all&&!selected.has(cell.dataset.routeColumn);});
+    const denominator=all?routeIds.length:selected.size;
+    panel.querySelectorAll('[data-route-item-destinations]').forEach(card=>{
+      const ids=new Set((card.dataset.routeItemDestinations||'').split(',').filter(Boolean));
+      const count=all?ids.size:[...selected].filter(id=>ids.has(id)).length;
+      card.hidden=count===0;
+      const coverage=card.querySelector('.route-item-coverage');
+      if(coverage){coverage.textContent=`${count}/${denominator}`;coverage.setAttribute('aria-label',`Platí pro ${count} z ${denominator} destinací`);}
+    });
+    panel.querySelectorAll('.route-group').forEach(group=>{
+      group.hidden=![...group.querySelectorAll('[data-route-item-destinations]')].some(card=>!card.hidden);
+    });
+    panel.querySelectorAll('[data-route-row-destinations]').forEach(row=>{
+      const ids=new Set((row.dataset.routeRowDestinations||'').split(',').filter(Boolean));
+      const count=all?ids.size:[...selected].filter(id=>ids.has(id)).length;
+      const total=row.querySelector('.route-matrix-total strong');
+      if(total)total.textContent=`${count}/${denominator}`;
+      row.dataset.routeCurrentCount=String(count);
+      row.dataset.filterHidden=String(count===0);
+    });
+    sortRows();
+  };
+  allButton.addEventListener('click',()=>{selected.clear();apply();});
+  countryButtons.forEach(btn=>btn.addEventListener('click',()=>{
+    const id=btn.dataset.routeFilterCountry;
+    if(selected.has(id))selected.delete(id);else selected.add(id);
+    apply();
+  }));
+  apply();
+}
+
+function routeDestinationCardsHtml(entries,missing){
+  const detailById=new Map(entries.map(entry=>[String(normId(entry.info.id)),entry.data]));
+  const missingIds=new Set((missing||[]).map(info=>String(normId(info.id))));
+  return `<section class="route-destinations" aria-labelledby="route-destinations-title">
+    <h3 id="route-destinations-title">Destinace v trase</h3>
+    <div class="route-destination-grid">${routeInfos().map((info,index)=>{
+      const data=detailById.get(String(normId(info.id)));
+      const {pov,zak,dop}=vaxArrays(data);
+      const summary=missingIds.has(String(normId(info.id)))
+        ? 'Bez dostupných cestovních doporučení'
+        : `${countWithNoun(pov.length,...COUNT_FORMS.required)} · ${countWithNoun(zak.length,...COUNT_FORMS.basic)} · ${countWithNoun(dop.length,...COUNT_FORMS.recommended)}`;
+      return `<button class="route-destination-card" type="button" data-route-country="${esc(info.id)}">
+        <span class="route-destination-order">${index+1}</span>
+        <span><strong>${esc(info.name)}</strong><small>${esc(summary)}</small></span>
+        <span class="route-destination-open">Detail →</span>
+      </button>`;
+    }).join('')}</div>
+  </section>`;
+}
+
+function setupRouteCountryButtons(panel){
+  panel?.querySelectorAll('[data-route-country]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      selectCountry(btn.dataset.routeCountry);
+      document.getElementById('pnl')?.scrollIntoView({behavior:'smooth',block:'start'});
+    });
+  });
 }
 
 let routeRenderToken=0;
@@ -2787,7 +3038,7 @@ async function renderRoutePanel(){
   if(token!==routeRenderToken)return;
 
   const items=routeItemsFromDetails(entries);
-  const total=entries.length;
+  const total=infos.length;
   const missing=infos.filter(info=>!info.has);
   const groups=[
     {key:'povinne',label:'Povinná očkování',cls:'p'},
@@ -2800,7 +3051,7 @@ async function renderRoutePanel(){
     if(!list.length)return '';
     return `<section class="route-group">
       <p class="sl ${group.cls}">${esc(group.label)}</p>
-      <div class="pills">${list.map(item=>routeItemHtml(item,total)).join('')}</div>
+      <div class="route-items">${list.map(item=>routeItemHtml(item,total)).join('')}</div>
     </section>`;
   }).join('');
 
@@ -2815,58 +3066,23 @@ async function renderRoutePanel(){
     </div>
     <span class="route-badge">${esc(countDestinations(infos.length))}</span>
   </div>
-  <p class="route-intro">Sloučená doporučení pro všechny zastávky. Číslo u položky říká, kolika destinací z trasy se týká — co platí jen pro jednu zastávku, je stejně potřeba řešit před cestou.</p>
+  <p class="route-intro">Sloučená doporučení pro všechny destinace v trase. Poměr u každé položky ukazuje, v kolika destinacích je doporučení uvedeno; přesné rozdělení najdete v přehledu níže.</p>
+  ${consultationNoteHtml()}
+  ${routeDestinationCardsHtml(entries,missing)}
   ${missingNote}
   ${sections||'<p class="route-missing">Pro zastávky v trase se zatím nepodařilo načíst žádná doporučení.</p>'}
+  ${routeComparisonHtml(items,infos,missing)}
   <div class="route-actions">
     <a class="bmore" href="https://www.ockovacicentrum.cz/cz/kde-ockujeme" target="_blank" rel="noopener noreferrer">Najít očkovací centrum</a>
-    ${printButtonHtml()}
     <button class="bmore secondary" type="button" data-route-clear>Vymazat trasu</button>
-  </div>
-  ${consultationNoteHtml()}`;
+  </div>`;
 
   panel.querySelector('[data-route-clear]')?.addEventListener('click',clearRoute);
+  setupRouteCountryButtons(panel);
+  setupRouteItemDialog(panel);
+  setupRouteComparison(panel);
 }
 
-/* ── Tisk a PDF ──
-   Uložení do PDF necháváme na prohlížeči: „Tisk → Uložit jako PDF“ dá lepší
-   typografii i výběr formátu než jakákoli knihovna a nepřidává závislost.
-   Naším úkolem je připravit stránku tak, aby na papíře dávala smysl. */
-/* Tisk zatím není dotažený, tlačítko je proto skryté. Kód zůstává funkční –
-   zapnutí je otázka jediné hodnoty. (Skryto 11. 8. 2026, k dopracování.) */
-const PRINT_ENABLED=false;
-
-function printButtonHtml(){
-  return PRINT_ENABLED
-    ? '<button class="bmore secondary" type="button" data-print-view>Vytisknout / uložit PDF</button>'
-    : '';
-}
-
-function printContextLabel(){
-  if(routeIds.length)return routeInfos().map(i=>i.name).join(' → ');
-  if(curInfo)return curInfo.name;
-  if(isCombination())return combinationLabel();
-  if(activeDisease&&activeDisease!=='all')return DISEASES[activeDisease]?.label||'';
-  return 'Přehled destinací';
-}
-
-function buildPrintHeader(){
-  const box=document.getElementById('print-header');
-  if(!box)return;
-  const date=new Intl.DateTimeFormat('cs-CZ',{day:'numeric',month:'numeric',year:'numeric'}).format(new Date());
-  const parts=[`Vytištěno ${date}`,'Zdroj: cestovní doporučení Avenier, ockovacicentrum.cz'];
-  /* Dvojtečka drží 1. pád – „Trasa o 3 destinace“ by bylo špatně. */
-  if(routeIds.length)parts.push(`Trasa: ${countDestinations(routeIds.length)}`);
-  box.innerHTML=`<div class="print-brand">Avenier · Očkovací centrum</div>
-    <div class="print-title">${esc(printContextLabel())}</div>
-    <div class="print-meta">${parts.map(esc).join(' · ')}</div>
-    <div class="print-note"><strong>Orientační přehled.</strong> Doporučení se liší podle délky pobytu, konkrétní oblasti, stylu cestování a zdravotního stavu. Tento výpis nenahrazuje vyšetření ani doporučení lékaře.</div>`;
-}
-
-function printCurrentView(){
-  buildPrintHeader();
-  window.print();
-}
 
 /* ── Ovládání mapy z klávesnice ──
    Mapa byla dostupná jen myší. Tabovat přes 240 zemí by bylo nepoužitelné,
@@ -3000,15 +3216,27 @@ function renderPanel(info){
   curSlug=info.slug;
   curInfo=info;
   const cacheState=getCachedDetailState(info.slug);
+  const routeIndex=routeIds.findIndex(id=>normId(id)===normId(info.id));
+  const previousInfo=routeIndex>0?FI.get(normId(routeIds[routeIndex-1])):null;
+  const nextInfo=routeIndex>=0&&routeIndex<routeIds.length-1?FI.get(normId(routeIds[routeIndex+1])):null;
+  const routeSwitcher=routeIndex>=0&&routeIds.length>1
+    ? `<nav class="detail-route-switcher" aria-label="Přepínání mezi destinacemi v trase">
+        <span class="detail-route-label">Trasa</span>
+        <button type="button" data-detail-route-target="${previousInfo?esc(previousInfo.id):''}" ${previousInfo?'':'disabled'} aria-label="${previousInfo?`Předchozí destinace: ${esc(previousInfo.name)}`:'Jste na první destinaci'}" title="${previousInfo?esc(previousInfo.name):'Předchozí'}">‹</button>
+        <strong>${routeIndex+1}/${routeIds.length} · ${esc(info.name)}</strong>
+        <button type="button" data-detail-route-target="${nextInfo?esc(nextInfo.id):''}" ${nextInfo?'':'disabled'} aria-label="${nextInfo?`Další destinace: ${esc(nextInfo.name)}`:'Jste na poslední destinaci'}" title="${nextInfo?esc(nextInfo.name):'Další'}">›</button>
+      </nav>`
+    : '';
   renderMapInfo(info,getCachedDetail(info.slug),info.has&&cacheState==='miss');
 
-  wrap.innerHTML=`<div class="card">
+  wrap.innerHTML=`${routeSwitcher}<div class="card">
     <button class="bclose" id="bcl" type="button" aria-label="Zavřít detail destinace">×</button>
     <div class="chd">
       <div>
         <p class="dlbl">Vybraná destinace</p>
         <h2 class="dname">${esc(info.name)}</h2>
         <div class="vcnts" id="vcc"></div>
+        <p class="vcnts-note">Počet neznamená, že potřebujete všechna uvedená očkování. Vhodný postup stanoví lékař podle konkrétní cesty.</p>
       </div>
     </div>
     <div class="div"></div>
@@ -3020,7 +3248,6 @@ function renderPanel(info){
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         </a>
         ${url?`<a class="bmore secondary" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(moreAboutDestinationLabel(info))}</a>`:''}
-        ${printButtonHtml()}
       </div>
       <span class="ftnote">ockovacicentrum.cz</span>
     </div>
@@ -3031,6 +3258,17 @@ function renderPanel(info){
   wrap.classList.add('open');
   document.getElementById('hint').classList.add('h');
   document.getElementById('bcl').addEventListener('click',closePanel);
+  wrap.querySelectorAll('[data-detail-route-target]').forEach(button=>{
+    button.addEventListener('click',()=>{
+      if(button.disabled||!button.dataset.detailRouteTarget)return;
+      const anchorTop=wrap.getBoundingClientRect().top;
+      selectCountry(button.dataset.detailRouteTarget,{preserveScroll:true});
+      requestAnimationFrame(()=>{
+        const nextTop=document.getElementById('pnl')?.getBoundingClientRect().top;
+        if(Number.isFinite(nextTop))window.scrollBy({top:nextTop-anchorTop,left:0,behavior:'instant'});
+      });
+    });
+  });
 
   if(!info.has){
     renderNoApiData(info);
@@ -3054,9 +3292,7 @@ function renderNoApiData(info){
   const vb=document.getElementById('vb');
   const external=externalDiseaseItems(info,null);
   if(vc)vc.innerHTML=external.length?detailBadgeHtml('vcb vcbx',countWithNoun(external.length,...COUNT_FORMS.external),'external'):'';
-  /* Bez obecné poznámky o konzultaci – odstavec níže už na situaci reaguje
-     konkrétněji a dvě nabídky konzultace za sebou působily jako výplň. */
-  if(vb)vb.innerHTML=`${destinationFilterNoticeHtml(info)}<p class="cnote">
+  if(vb)vb.innerHTML=`${destinationFilterNoticeHtml(info)}${consultationNoteHtml()}<p class="cnote">
     Pro destinaci <strong>${esc(info.name)}</strong> zatím nemáme cestovní doporučení.
     Očkování a ochranu před nemocemi s vámi rádi projdeme osobně — naši specialisté
     v očkovacích centrech Avenier poradí i s destinacemi, které v mapě nenajdete.
@@ -3131,11 +3367,11 @@ function renderVax(data){
     (external.length?detailBadgeHtml('vcb vcbx',countWithNoun(external.length,...COUNT_FORMS.external),'external'):'');
 
   let h=destinationFilterNoticeHtml(curInfo);
+  h+=consultationNoteHtml();
   h+=sectionHtml('p','Povinná očkování','povinne',pov,'Pro tuto destinaci nejsou uvedená žádná povinná očkování.');
   h+=sectionHtml('z','Základní očkování','zakladni',zak,'Pro tuto destinaci nejsou uvedená žádná základní očkování.');
   h+=sectionHtml('d','Další doporučení a rizika','doporuceni',dop,'Pro tuto destinaci nejsou uvedená žádná další doporučení ani rizika.');
   h+=externalDiseaseSectionHtml(curInfo,data);
-  h+=consultationNoteHtml();
 
   vb.innerHTML=h;
   setupHelpButtons(vb);
@@ -3278,7 +3514,7 @@ function setActiveQuick(info=null){
 }
 
 /* ── Výběr země (ze search i z kliknutí) ── */
-function selectCountry(numId){
+function selectCountry(numId,{preserveScroll=false}={}){
   const id=normId(numId);
   const info=FI.get(id);
   if(!info){
@@ -3311,7 +3547,7 @@ function selectCountry(numId){
   document.getElementById('av-dd').classList.remove('open');
 
   setActiveQuick(info);
-  scrollMapIntoView();
+  if(!preserveScroll)scrollMapIntoView();
   renderPanel(info);
   updateUrlState();
 }
@@ -4078,6 +4314,7 @@ async function initMap(){
 async function initMapInternal(){
   const st=document.getElementById('av-status');
   setupCoverageDialog();
+  setupRouteLimitDialog();
 
   if(typeof d3==='undefined' || typeof topojson==='undefined'){
     renderStartupError('Nepodařilo se načíst knihovny pro vykreslení mapy (d3 / topojson). Zkuste stránku načíst znovu.','d3 nebo topojson není k dispozici');
@@ -4373,9 +4610,5 @@ async function initMapInternal(){
   setupMapExport();
 }
 
-document.addEventListener('click',e=>{
-  if(e.target.closest('[data-print-view]'))printCurrentView();
-});
-window.addEventListener('beforeprint',buildPrintHeader);
 
 initMap();

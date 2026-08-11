@@ -120,7 +120,7 @@ assert(app.includes('function syncExpandedDiseaseGroup')&&app.includes('group.op
 assert(app.includes('const name=cleanName(cz||entry?.name||en)')&&app.includes('entry?.name,en,cz'),'Český název není oddělený od anglického vyhledávacího synonyma.');
 assert(app.includes('function moreAboutDestinationLabel')&&app.includes('Více informací:'),'Odkazy na destinaci nemají jednotné konkrétní označení.');
 assert(html.includes('Mapa očkování a zdravotních rizik')&&html.includes('Očkování, vstupní podmínky a zdravotní rizika podle destinace'),'Název aplikace neodpovídá širšímu informačnímu obsahu.');
-assert(html.includes('quick-label">Oblíbené destinace')&&html.includes('class="quick-list"'),'Mobilní rychlé destinace nemají srozumitelný kontext.');
+assert(/class="quick"[^>]*hidden/.test(html)&&mapCss.includes('.quick[hidden]{display:none!important}'),'Oblíbené destinace nejsou spolehlivě skryté.');
 assert(app.includes('<details class="external-card">')&&app.includes('EXTERNAL_DETAIL_SUMMARIES'),'Externí nemoci nejsou ve zkrácených rozbalovacích kartách.');
 assert(app.includes("mark:'R+V'")&&app.includes("mark:'✓'")&&app.includes('${esc(it.mark||\'\')}'),'Barevné kategorie nemají doplňkové textové značky.');
 assert(app.includes('function detailBadgeHtml')&&app.includes('data-mi-section')&&app.includes('data-detail-section'),'Odznaky kategorií nefungují jako navigace do detailu.');
@@ -163,13 +163,6 @@ for(const pageName of sharePages.filter(f=>f.endsWith('.html'))){
   assert(image?.isFile()&&image.size>15000,`Chybí náhledový obrázek pro ${key}.`);
 }
 
-/* Tisk a PDF řeší prohlížeč, my dodáváme tiskový styl a hlavičku. */
-assert(html.includes('id="print-header"'),'Chybí tisková hlavička.');
-assert(mapCss.includes('@media print'),'Chybí tiskový styl.');
-assert(app.includes('function buildPrintHeader')&&app.includes('data-print-view'),'Chybí ovládání tisku.');
-/* Tisk je dočasně skrytý přepínačem; kód musí zůstat na místě. */
-assert(/const PRINT_ENABLED=(true|false);/.test(app),'Chybí přepínač viditelnosti tisku.');
-assert(app.includes('function printButtonHtml'),'Tlačítko tisku se nevykresluje přes přepínač.');
 
 /* Mapa musí jít ovládat z klávesnice. */
 assert(app.includes('function setupMapKeyboard')&&app.includes("setAttribute('tabindex','0')"),'Mapa není fokusovatelná z klávesnice.');
@@ -182,6 +175,15 @@ assert(app.includes('function setRoute')&&app.includes('function toggleRouteDest
 assert(html.includes('id="route-bar"')&&html.includes('id="route-panel"'),'V rozhraní chybí prvky trasy.');
 assert(app.includes("const ROUTE_COLOR=")&&app.includes('function strokeForId'),'Trasa se nekreslí jako obrys nad filtrem.');
 assert(app.includes('ROUTE_CATEGORY_ORDER'),'Souhrn trasy neřeší nejsilnější kategorii položky.');
+assert(app.includes('const ROUTE_MAX=5;')&&html.includes('Do trasy lze přidat nejvýše 5 destinací')&&html.includes('nejprve jednu z vybraných destinací odeberte'),'Trasa není omezená na pět destinací nebo limit nevysvětluje.');
+assert(app.includes('function routeDestinationCardsHtml')&&app.includes('data-route-country'),'Souhrn trasy nevypisuje samostatně všechny destinace.');
+assert(app.includes('function routeComparisonHtml')&&app.includes('route-matrix-mark')&&app.includes('${count}/${total}'),'Souhrn trasy nemá kompaktní poměr a srovnání podle destinací.');
+assert(app.includes("data-mi-action=\"route-prev\"")&&app.includes("data-mi-action=\"route-next\""),'V detailu chybí pohyb mezi destinacemi trasy.');
+assert(html.includes('id="route-item-dialog"')&&app.includes('function setupRouteItemDialog'),'Souhrn trasy nemá detail doporučení podle destinací.');
+assert(app.includes("sortMode='category'")&&app.includes('data-route-sort-reset'),'Srovnávací tabulka nemá globální řazení podle souhrnu a reset.');
+assert(app.includes('preserveScroll=false')&&app.includes('{preserveScroll:true}')&&app.includes('anchorTop'),'Dolní přepínač trasy nechrání pozici stránky.');
+assert(html.includes('Konečné doporučení a rozhodnutí o očkování vždy stanoví ordinující lékař.'),'Hlavní medicínské upozornění není dostatečně jednoznačné.');
+assert(app.includes('Konečné doporučení určí lékař')&&app.includes('aktuální situace v destinaci'),'Detail a souhrn trasy nemají kontextové medicínské upozornění.');
 
 /* Vyhledávání musí zvládnout skloňování, překlepy, regiony a názvy nemocí. */
 assert(app.includes('function searchStem')&&app.includes('function editDistanceWithin'),'Vyhledávání nemá kmeny ani toleranci překlepů.');
