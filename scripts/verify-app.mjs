@@ -167,6 +167,9 @@ for(const pageName of sharePages.filter(f=>f.endsWith('.html'))){
 assert(html.includes('id="print-header"'),'Chybí tisková hlavička.');
 assert(mapCss.includes('@media print'),'Chybí tiskový styl.');
 assert(app.includes('function buildPrintHeader')&&app.includes('data-print-view'),'Chybí ovládání tisku.');
+/* Tisk je dočasně skrytý přepínačem; kód musí zůstat na místě. */
+assert(/const PRINT_ENABLED=(true|false);/.test(app),'Chybí přepínač viditelnosti tisku.');
+assert(app.includes('function printButtonHtml'),'Tlačítko tisku se nevykresluje přes přepínač.');
 
 /* Mapa musí jít ovládat z klávesnice. */
 assert(app.includes('function setupMapKeyboard')&&app.includes("setAttribute('tabindex','0')"),'Mapa není fokusovatelná z klávesnice.');

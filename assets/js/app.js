@@ -2820,7 +2820,7 @@ async function renderRoutePanel(){
   ${sections||'<p class="route-missing">Pro zastávky v trase se zatím nepodařilo načíst žádná doporučení.</p>'}
   <div class="route-actions">
     <a class="bmore" href="https://www.ockovacicentrum.cz/cz/kde-ockujeme" target="_blank" rel="noopener noreferrer">Najít očkovací centrum</a>
-    <button class="bmore secondary" type="button" data-print-view>Vytisknout / uložit PDF</button>
+    ${printButtonHtml()}
     <button class="bmore secondary" type="button" data-route-clear>Vymazat trasu</button>
   </div>
   ${consultationNoteHtml()}`;
@@ -2832,6 +2832,16 @@ async function renderRoutePanel(){
    Uložení do PDF necháváme na prohlížeči: „Tisk → Uložit jako PDF“ dá lepší
    typografii i výběr formátu než jakákoli knihovna a nepřidává závislost.
    Naším úkolem je připravit stránku tak, aby na papíře dávala smysl. */
+/* Tisk zatím není dotažený, tlačítko je proto skryté. Kód zůstává funkční –
+   zapnutí je otázka jediné hodnoty. (Skryto 11. 8. 2026, k dopracování.) */
+const PRINT_ENABLED=false;
+
+function printButtonHtml(){
+  return PRINT_ENABLED
+    ? '<button class="bmore secondary" type="button" data-print-view>Vytisknout / uložit PDF</button>'
+    : '';
+}
+
 function printContextLabel(){
   if(routeIds.length)return routeInfos().map(i=>i.name).join(' → ');
   if(curInfo)return curInfo.name;
@@ -3010,7 +3020,7 @@ function renderPanel(info){
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         </a>
         ${url?`<a class="bmore secondary" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(moreAboutDestinationLabel(info))}</a>`:''}
-        <button class="bmore secondary" type="button" data-print-view>Vytisknout / uložit PDF</button>
+        ${printButtonHtml()}
       </div>
       <span class="ftnote">ockovacicentrum.cz</span>
     </div>
