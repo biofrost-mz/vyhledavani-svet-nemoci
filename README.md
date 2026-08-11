@@ -235,6 +235,17 @@ Opravy nalezené při systematickém průchodu aplikací.
 - pod logem Avenier není žádný bílý, barevný ani průhledný panel; logo se kreslí samostatně nad mapou,
 - statické assety mají verzovaný cache-buster `v=23.9`.
 
+## v24.4 – kombinace filtrů
+
+- filtry nemocí lze kombinovat: tlačítko **„+ Kombinovat s další nemocí"** přepne panel do režimu, kde klik přidává další nemoc do výběru,
+- mapa i výsledky ukazují **průnik** — zvýrazněné jsou pouze destinace, kterých se týkají všechny vybrané nemoci zároveň,
+- kombinace má vlastní barvu a legendu („Odpovídá všem vybraným nemocem"); barvy jednotlivých nemocí by u průniku nedávaly smysl,
+- podfiltry žluté zimnice a horečky dengue se v kombinaci neuplatňují, každá nemoc do průniku vstupuje celá; text to výslovně uvádí,
+- nad výsledky se zobrazí zdroje pro každou vybranou nemoc zvlášť,
+- kombinaci nese i sdílený odkaz (`?filtr=malaria,yellow-fever`) a export do PNG včetně názvu a názvu souboru,
+- výběr jedné nemoci i tlačítko „Všechny destinace" kombinaci ruší, takže původní chování filtrů zůstává beze změny,
+- statické assety mají verzovaný cache-buster `v=24.4`.
+
 ### Známá omezení
 - aplikaci je potřeba servírovat přes HTTP(S); při otevření přes `file://` selže načtení dat kvůli CORS,
 - filtry žloutenky A i B (230/230), meningokoka (229), spalniček (228) a chřipky (226) zvýrazní téměř celou mapu; upozorňuje na to poznámka pod výsledky,

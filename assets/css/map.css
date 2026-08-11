@@ -1502,3 +1502,118 @@ a:hover{color:var(--oc-green)}
   .card>.bclose{top:16px;right:14px;width:40px;height:40px}
   .card>.chd{padding-right:48px}
 }
+
+
+/* ==== v24.4 kombinace filtrů ==== */
+.fbtn.combine{
+  background:#fff;
+  border:1px dashed rgba(0,103,120,.34);
+  color:var(--oc-blue);
+}
+.fbtn.combine:hover{border-style:solid;border-color:rgba(0,103,120,.5)}
+.fbtn.combine.on{
+  background:linear-gradient(135deg,var(--oc-blue),#005564)!important;
+  border-color:var(--oc-blue)!important;
+  border-style:solid!important;
+  color:#fff!important;
+  box-shadow:0 10px 22px rgba(0,103,120,.18);
+}
+/* Nemoci vybrané do kombinace se odliší od jednoduchého filtru. */
+.fbtn.combo-active{
+  background:linear-gradient(135deg,var(--oc-magenta),#a9004e)!important;
+  border-color:var(--oc-magenta)!important;
+  color:#fff!important;
+  box-shadow:0 10px 22px rgba(202,0,93,.20);
+}
+
+.fcombo{
+  width:100%;
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:8px 10px;
+  margin-top:2px;
+  padding:10px 12px;
+  border-radius:14px;
+  background:rgba(202,0,93,.05);
+  border:1px solid rgba(202,0,93,.18);
+}
+.fcombo[hidden]{display:none!important}
+.fcombo-row{display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+.fcombo-chip{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:5px 6px 5px 11px;
+  border-radius:999px;
+  background:#fff;
+  border:1px solid rgba(202,0,93,.28);
+  font-family:'Saira',sans-serif;
+  font-size:12px;
+  font-weight:600;
+  color:#8b0040;
+}
+.fcombo-chip:not(:has(button)){padding-right:11px}
+.fcombo-chip i{font-style:normal;color:#b07;opacity:.6;margin-left:-4px;margin-right:2px}
+.fcombo-chip button{
+  /* 24×24 je minimum pro dotykový cíl podle WCAG 2.5.8. */
+  width:24px;height:24px;
+  display:inline-flex;align-items:center;justify-content:center;
+  border:none;border-radius:999px;
+  background:rgba(202,0,93,.10);
+  color:#8b0040;
+  font-size:13px;line-height:1;
+  cursor:pointer;
+}
+.fcombo-chip button:hover{background:rgba(202,0,93,.20)}
+.fcombo-count{
+  font-family:'Saira',sans-serif;
+  font-size:12px;
+  font-weight:700;
+  color:#8b0040;
+  padding:5px 11px;
+  border-radius:999px;
+  background:rgba(202,0,93,.12);
+}
+.fcombo-hint{font-size:11.5px;line-height:1.45;color:#6c7b75;flex:1 1 200px}
+.fcombo-clear{
+  margin-left:auto;
+  border:1px solid rgba(0,103,120,.2);
+  background:#fff;
+  border-radius:999px;
+  padding:6px 12px;
+  font-family:'Saira',sans-serif;
+  font-size:11.5px;
+  font-weight:700;
+  color:var(--oc-blue);
+  cursor:pointer;
+}
+.fcombo-clear:hover{background:rgba(0,103,120,.06)}
+
+.fr-chip.combo{
+  background:rgba(202,0,93,.08);
+  border-color:rgba(202,0,93,.28);
+  color:#8b0040;
+}
+.fr-chip.combo:hover{background:#fff;border-color:rgba(202,0,93,.5)}
+.fr-combo-note{border-left-color:var(--oc-magenta);background:rgba(202,0,93,.045);border-color:rgba(202,0,93,.18)}
+.fr-combo-sources{margin:8px 0 0;padding-left:18px;display:grid;gap:4px}
+.fr-combo-sources li{font-size:11.5px;line-height:1.5}
+
+.mfl-combo-list{display:flex;flex-wrap:wrap;gap:5px;margin-top:2px}
+.mfl-combo-item{
+  padding:3px 8px;
+  border-radius:999px;
+  background:rgba(202,0,93,.10);
+  border:1px solid rgba(202,0,93,.24);
+  font-size:10.5px;
+  font-weight:700;
+  color:#8b0040;
+}
+.map-filter-legend:has(.mfl-combo-list){border-left-color:var(--oc-magenta)}
+
+@media(max-width:640px){
+  .fcombo{padding:9px 10px;gap:7px}
+  .fcombo-clear{margin-left:0}
+  .fcombo-hint{flex-basis:100%}
+}

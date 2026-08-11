@@ -20,6 +20,12 @@ let oceanRect=null,graticulePath=null,bordersPath=null,countryPaths=null,markerS
 let mapResizeListenersBound=false;
 
 let activeDisease='all';
+/* Kombinace filtrů: activeDisease zůstává hlavní nemocí, extraDiseases nese
+   ty přidané. Průnik = destinace, které odpovídají všem vybraným najednou.
+   Díky tomu zůstávají všechna volání DISEASES[activeDisease] platná. */
+let extraDiseases=[];
+let combineMode=false;
+let combinedHitsCache=null;
 let requestedDisease='all';
 let activeYellowFeverFacet='all';
 let activeDengueFacet='all';
@@ -241,11 +247,56 @@ function updateMarkerScale(){
     .attr('stroke-width',d=>markerBaseStroke(d.id)/k);
 }
 
+/* Kombinace má vlastní barvu. Barvy jednotlivých nemocí by u průniku nedávaly
+   smysl – destinace odpovídá všem vybraným najednou, ne jedné z nich. */
+const COMBO_COLOR='#CA005D';
+const COMBO_HOVER='#a9004e';
+
+function activeDiseaseKeys(){
+  if(!activeDisease||activeDisease==='all')return [];
+  return unique([activeDisease,...extraDiseases]);
+}
+
+function isCombination(){
+  return extraDiseases.length>0;
+}
+
+/* Průnik napříč vybranými nemocemi. Podfiltry (žlutá zimnice, dengue) se
+   v kombinaci neuplatňují – nemoc do průniku vstupuje celá. */
+function combinedHits(){
+  if(combinedHitsCache)return combinedHitsCache;
+  const keys=activeDiseaseKeys();
+  if(!keys.length)return new Set();
+  let result=null;
+  keys.forEach(key=>{
+    const hits=effectiveDiseaseHits(key);
+    if(result===null){
+      result=new Set(hits);
+      return;
+    }
+    result=new Set([...result].filter(id=>hits.has(id)));
+  });
+  combinedHitsCache=result||new Set();
+  return combinedHitsCache;
+}
+
+function invalidateCombinedHits(){
+  combinedHitsCache=null;
+}
+
+/* Jediné místo, kde se rozhoduje, jestli destinace odpovídá aktuálnímu filtru. */
+function matchesActiveFilter(id){
+  if(!activeDisease||activeDisease==='all')return true;
+  if(isCombination())return combinedHits().has(normId(id));
+  return diseaseContainsMapId(activeDisease,id);
+}
+
 function colorForId(id){
   const nid=normId(id);
   const info=FI.get(nid);
   if(!info?.has)return MC.none;
   if(activeDisease && activeDisease!=='all'){
+    if(isCombination())return matchesActiveFilter(nid)?COMBO_COLOR:MC.dim;
     const hits=diseaseIndex.get(activeDisease);
     if(!hits)return MC.dim;
     if(!diseaseContainsMapId(activeDisease,nid))return MC.dim;
@@ -258,12 +309,17 @@ function colorForId(id){
 function hoverColorForId(id){
   const nid=normId(id);
   if(activeDisease && activeDisease!=='all'){
+    if(isCombination())return matchesActiveFilter(nid)?COMBO_HOVER:MC.dim;
     if(!diseaseIndex.has(activeDisease))return MC.dim;
     if(!diseaseContainsMapId(activeDisease,nid))return MC.dim;
     const facet=diseaseFacetForMapId(activeDisease,nid);
     return facet?DISEASES[activeDisease]?.facetHover?.[facet]||DISEASES[activeDisease].hover:DISEASES[activeDisease].hover;
   }
   return MC.hov;
+}
+
+function combinationLabel(separator=' + '){
+  return activeDiseaseKeys().map(key=>DISEASES[key]?.label||key).join(separator);
 }
 
 function bf(d){
@@ -759,7 +815,7 @@ function externalDiseaseSectionHtml(info,data){
     <div class="external-diseases-head">
       <div>
         <p class="external-kicker">Doplňující odborné zdroje</p>
-        <h3 id="external-diseases-title">Další nemoci a rizika v destinaci</h3>
+        <h3 id="external-diseases-title">Rizika podle CDC a WHO</h3>
       </div>
       <span class="external-count">${countWithNoun(items.length,...COUNT_FORMS.external)}</span>
     </div>
@@ -974,7 +1030,8 @@ function renderFilterResults(){
   }
 
   const cfg=DISEASES[activeDisease];
-  const hits=[...visibleDiseaseHits(activeDisease)]
+  const combo=isCombination();
+  const hits=[...(combo?combinedHits():visibleDiseaseHits(activeDisease))]
     .map(id=>({id,info:FI.get(normId(id))}))
     .filter(x=>x.info)
     .sort((a,b)=>a.info.name.localeCompare(b.info.name,'cs'));
@@ -983,19 +1040,23 @@ function renderFilterResults(){
   box.classList.add('open');
 
   const chipFor=({id,info})=>{
+    if(combo)return `<button class="fr-chip combo" type="button" data-fr-country="${esc(id)}">${esc(info.name)}</button>`;
     const facet=diseaseFacetForId(activeDisease,id);
     const facetLabel=facet==='both'?'místní riziko a vstupní podmínka':facet==='entry'?'vstupní podmínka':facet==='risk'?'místní riziko žluté zimnice':facet==='endemic'?'endemický výskyt dengue':facet==='general'?'obecné doporučení k dengue':'';
     const facetClass=activeDisease==='yellow-fever'&&facet?` yf-${facet}`:activeDisease==='dengue'&&facet?` dg-${facet}`:'';
     return `<button class="fr-chip${facetClass}" type="button" data-fr-country="${esc(id)}"${facetLabel?` title="${esc(facetLabel)}"`:''}>${esc(info.name)}</button>`;
   };
   const chips=hits.map(chipFor).join('');
-  const isYellowFever=activeDisease==='yellow-fever';
-  const isDengue=activeDisease==='dengue';
-  const sourceNote=isYellowFever||isDengue?'':filterSourceNote(activeDisease,hits.length);
+  const isYellowFever=!combo&&activeDisease==='yellow-fever';
+  const isDengue=!combo&&activeDisease==='dengue';
+  const sourceNote=combo?combinationSourceNote():(isYellowFever||isDengue?'':filterSourceNote(activeDisease,hits.length));
   const facetOverview=isYellowFever?yellowFeverOverview():isDengue?dengueOverview():'';
+  const emptyText=combo
+    ? 'Žádná destinace neodpovídá všem vybraným nemocem zároveň. Zkuste některou z kombinace odebrat.'
+    : 'Pro tento filtr se zatím nepodařilo najít žádnou destinaci. Může jít o riziko, které zatím není u destinací jednotně vedené.';
   const resultsContent=isYellowFever
     ? yellowFeverColumns(hits,chipFor)
-    : (hits.length?`<div class="fr-grid">${chips}</div>`:`<div class="fr-empty">Pro tento filtr se zatím nepodařilo najít žádnou destinaci. Může jít o riziko, které zatím není u destinací jednotně vedené.</div>`);
+    : (hits.length?`<div class="fr-grid">${chips}</div>`:`<div class="fr-empty">${esc(emptyText)}</div>`);
   const mismatch=filterDestinationMismatch?`<aside class="fr-mismatch" role="status">
     <div><strong>${esc(filterDestinationMismatch.name)} neodpovídá aktuálnímu filtru.</strong><span>Proto jsme mapu na tuto destinaci nepřiblížili. Můžete pokračovat ve filtru, nebo jej zrušit a otevřít doporučení pro destinaci.</span></div>
     <button type="button" data-show-mismatch-country="${esc(filterDestinationMismatch.id)}">Zrušit filtr a otevřít destinaci</button>
@@ -1003,7 +1064,7 @@ function renderFilterResults(){
 
   box.innerHTML=`<div class="fr-head">
     <div>
-      <div class="fr-title">${esc(cfg?.label||'Vybraný filtr')}${isYellowFever&&activeYellowFeverFacet!=='all'?` – ${esc(yellowFeverFacetLabel(activeYellowFeverFacet))}`:isDengue&&activeDengueFacet!=='all'?` – ${esc(dengueFacetLabel(activeDengueFacet))}`:' – destinace v aktuálním filtru'}</div>
+      <div class="fr-title">${combo?`${esc(combinationLabel())} – destinace se všemi vybranými riziky`:`${esc(cfg?.label||'Vybraný filtr')}${isYellowFever&&activeYellowFeverFacet!=='all'?` – ${esc(yellowFeverFacetLabel(activeYellowFeverFacet))}`:isDengue&&activeDengueFacet!=='all'?` – ${esc(dengueFacetLabel(activeDengueFacet))}`:' – destinace v aktuálním filtru'}`}</div>
       <div class="fr-count"><strong>${hits.length}</strong> ${esc(destinationsWord(hits.length))}</div>
       <div class="fr-sub">Kliknutím na destinaci otevřete detail v mapě. Další související nemoci a rizika najdete po otevření detailu destinace.</div>
     </div>
@@ -1225,6 +1286,25 @@ function yellowFeverColumns(hits,chipFor){
   }).join('')}</div>`;
 }
 
+/* U kombinace nemá smysl opakovat popis jednoho filtru – uživatel potřebuje
+   vědět, že jde o průnik, a odkud pochází data pro každou nemoc zvlášť. */
+function combinationSourceNote(){
+  const keys=activeDiseaseKeys();
+  const sources=keys.map(key=>{
+    const cfg=DISEASES[key];
+    const staticCfg=staticDiseaseConfig(key);
+    const label=staticCfg?.sourceLabel||'cestovní doporučení Avenier';
+    const url=staticCfg?.sourceUrl||cfg?.url;
+    return `<li><strong>${esc(cfg?.label||key)}</strong> — ${url?`<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(label)}</a>`:esc(label)}</li>`;
+  }).join('');
+  return `<div class="fr-source-note fr-combo-note">
+    <strong>Co na mapě vidíte:</strong> Zvýrazněné jsou pouze destinace, kterých se týkají
+    <strong>všechny vybrané nemoci zároveň</strong>. Destinace, kde platí jen některá z nich, zůstávají potlačené.
+    U kombinace se nepoužívají podrobnější kategorie žluté zimnice ani horečky dengue — každá nemoc do průniku vstupuje celá.
+    <ul class="fr-combo-sources">${sources}</ul>
+  </div>`;
+}
+
 function filterSourceNote(key,hitCount){
   const staticCfg=staticDiseaseConfig(key);
   if(staticCfg){
@@ -1274,6 +1354,10 @@ function mapLegendItems(){
   const cfg=DISEASES[activeDisease];
   const noMatch={color:MC.dim,label:'Neodpovídá filtru',mark:'×'};
 
+  if(isCombination()){
+    return [{color:COMBO_COLOR,label:'Odpovídá všem vybraným nemocem',mark:'✓'},noMatch,noData,selected];
+  }
+
   if(activeDisease==='yellow-fever'){
     const f=cfg.facetColors;
     const items=[
@@ -1312,11 +1396,15 @@ const MAP_EXPORT={width:3840,height:2160,mapWidth:3520,mapHeight:1370,logo:'asse
 
 function normalizedExportOptions(options={}){
   const disease=activeDisease||'all';
-  const supportsFacets=disease==='yellow-fever'||disease==='dengue';
+  const combo=isCombination();
+  /* V kombinaci se podfiltry neuplatňují, export je tedy nenabízí. */
+  const supportsFacets=!combo&&(disease==='yellow-fever'||disease==='dengue');
   const allowed=disease==='yellow-fever'?new Set(['all','risk','entry','both']):new Set(['all','endemic','general']);
   const requested=String(options.facet||'all');
   return{
     disease,
+    diseases:activeDiseaseKeys(),
+    combo,
     facet:supportsFacets&&allowed.has(requested)?requested:'all',
     layout:options.layout==='classic'?'classic':'map'
   };
@@ -1332,6 +1420,7 @@ function exportFacetLabel(options={}){
 function exportDiseaseHits(options={}){
   const opts=normalizedExportOptions(options);
   if(opts.disease==='all')return new Set([...FI.entries()].filter(([,info])=>info.has).map(([id])=>normId(id)));
+  if(opts.combo)return combinedHits();
   const hits=effectiveDiseaseHits(opts.disease);
   if(opts.facet==='all')return hits;
   return new Set([...hits].filter(id=>diseaseFacetForId(opts.disease,id)===opts.facet));
@@ -1344,6 +1433,7 @@ function exportColorForId(id,options={}){
   if(!info?.has)return MC.none;
   if(opts.disease==='all')return MC.has;
   if(!exportDiseaseHits(opts).has(nid))return MC.dim;
+  if(opts.combo)return COMBO_COLOR;
   const facet=diseaseFacetForId(opts.disease,nid);
   return facet?DISEASES[opts.disease]?.facetColors?.[facet]||DISEASES[opts.disease].color:DISEASES[opts.disease].color;
 }
@@ -1355,6 +1445,11 @@ function exportLegendItems(options={}){
   ];
   const cfg=DISEASES[opts.disease];
   const items=[];
+  if(opts.combo){
+    items.push({color:COMBO_COLOR,label:'Odpovídá všem vybraným nemocem',mark:'✓'});
+    items.push({color:MC.dim,label:'Ostatní destinace',mark:'×'});
+    return items;
+  }
   if(opts.disease==='yellow-fever'){
     [
       {facet:'risk',color:cfg.facetColors.risk,label:'Pouze místní riziko',mark:'R'},
@@ -1391,9 +1486,14 @@ function exportMetadata(options={}){
   if(opts.disease==='yellow-fever'){
     sourceLabel=`Avenier – cestovní doporučení + ${staticCfg?.sourceLabel||'CDC Yellow Book'}`;
   }
+  if(opts.combo){
+    const labels=unique(opts.diseases.map(key=>staticDiseaseConfig(key)?.sourceLabel||'cestovní doporučení Avenier'));
+    sourceLabel=labels.join(' + ');
+    dataDate=diseaseIndexGeneratedAt?`Aktualizace dat: ${dateFormat.format(new Date(diseaseIndexGeneratedAt))}`:`Data načtena: ${dateFormat.format(now)}`;
+  }
 
   return{
-    title:disease?disease.label:'Všechny destinace s doporučeními',
+    title:opts.combo?combinationLabel():(disease?disease.label:'Všechny destinace s doporučeními'),
     facet,
     count,
     sourceLabel,
@@ -1720,7 +1820,7 @@ function openMapExportDialog(){
   const dialog=document.getElementById('map-export-dialog');
   if(!dialog)return;
   const current=document.getElementById('map-export-current-filter');
-  if(current)current.textContent=activeDisease==='all'?'Všechny destinace':DISEASES[activeDisease]?.label||activeDisease;
+  if(current)current.textContent=isCombination()?combinationLabel():(activeDisease==='all'?'Všechny destinace':DISEASES[activeDisease]?.label||activeDisease);
   const fieldset=document.getElementById('map-export-facet-fieldset');
   const optionsBox=document.getElementById('map-export-facet-options');
   const definitions=exportFacetDefinitions();
@@ -1751,7 +1851,10 @@ async function downloadMapPng(options={},trigger=null){
   try{
     const opts=normalizedExportOptions(options);
     const result=await createMapExportBlob(opts);
-    const filename=`avenier-mapa-${slugKey(opts.disease==='all'?'vsechny-destinace':opts.disease)}${opts.facet!=='all'?`-${slugKey(opts.facet)}`:'-vsechny-kategorie'}-${result.meta.fileDate}.png`;
+    const namePart=opts.combo
+      ? opts.diseases.map(slugKey).join('-a-')
+      : slugKey(opts.disease==='all'?'vsechny-destinace':opts.disease);
+    const filename=`avenier-mapa-${namePart}${!opts.combo&&opts.facet!=='all'?`-${slugKey(opts.facet)}`:opts.combo?'':'-vsechny-kategorie'}-${result.meta.fileDate}.png`;
     const url=URL.createObjectURL(result.blob);
     const link=document.createElement('a');link.href=url;link.download=filename;document.body.appendChild(link);link.click();link.remove();
     setTimeout(()=>URL.revokeObjectURL(url),1500);
@@ -1785,6 +1888,17 @@ function renderMapFilterLegend(){
   const box=document.getElementById('map-filter-legend');
   if(!box)return;
   const sourceCfg=staticDiseaseConfig(activeDisease);
+
+  /* Kombinace má vlastní kartu: podfiltry se v ní neuplatňují. */
+  if(isCombination()){
+    box.hidden=false;
+    box.innerHTML=`<strong>Kombinace filtrů</strong>
+      <span class="mfl-note">Zvýrazněné jsou destinace, kterých se týkají všechny vybrané nemoci zároveň.</span>
+      <span class="mfl-combo-list">${activeDiseaseKeys().map(key=>`<span class="mfl-combo-item">${esc(DISEASES[key]?.label||key)}</span>`).join('')}</span>
+      <span class="mfl-reviewed">${esc(countDestinations(combinedHits().size))} v průniku</span>`;
+    return;
+  }
+
   if(activeDisease!=='yellow-fever'&&activeDisease!=='dengue'&&!sourceCfg){
     box.hidden=true;
     box.innerHTML='';
@@ -1922,15 +2036,18 @@ async function setDiseaseFilter(key){
   }
   activeYellowFeverFacet='all';
   activeDengueFacet='all';
+  /* Výběr jedné nemoci vždy začíná nanovo, kombinace se ruší. */
+  extraDiseases=[];
+  invalidateCombinedHits();
   const token=++filterRequestToken;
   scrollMapIntoView();
-  document.querySelectorAll('.fbtn[data-disease]').forEach(btn=>{
-    btn.classList.toggle('active',btn.dataset.disease===requestedDisease);
-  });
+  syncFilterButtons();
   syncExpandedDiseaseGroup(requestedDisease);
 
   if(requestedDisease==='all'){
     activeDisease='all';
+    combineMode=false;
+    renderCombineUi();
     renderMapFilterLegend();
     renderMapLegend();
     const status=document.getElementById('filter-status');
@@ -1958,6 +2075,116 @@ async function setDiseaseFilter(key){
   if(loader)loader.classList.remove('on');
   const effectiveHits=effectiveDiseaseHits(activeDisease);
   if(status)status.textContent=`${DISEASES[activeDisease].label}: zvýrazněno ${countDestinations(effectiveHits.size)}${diseaseSourceLabel(activeDisease)}.`;
+  syncFilterButtons();
+  renderCombineUi();
+  renderMapFilterLegend();
+  renderMapLegend();
+  repaintMap();
+  renderFilterResults();
+  if(curInfo)renderMapInfo(curInfo,getCachedDetail(curInfo.slug),false);
+  updateUrlState();
+}
+
+/* ── Kombinace filtrů ── */
+
+function syncFilterButtons(){
+  const selected=new Set(activeDiseaseKeys());
+  document.querySelectorAll('.fbtn[data-disease]').forEach(btn=>{
+    const key=btn.dataset.disease;
+    const isActive=key==='all'?(!activeDisease||activeDisease==='all'):selected.has(key);
+    btn.classList.toggle('active',isActive);
+    btn.classList.toggle('combo-active',isActive&&key!=='all'&&isCombination());
+    if(combineMode&&key!=='all')btn.setAttribute('aria-pressed',String(isActive));
+    else btn.removeAttribute('aria-pressed');
+  });
+}
+
+function renderCombineUi(){
+  const toggle=document.getElementById('filter-combine');
+  const summary=document.getElementById('filter-combo');
+  const hasFilter=activeDisease&&activeDisease!=='all';
+
+  if(toggle){
+    toggle.hidden=!hasFilter;
+    toggle.classList.toggle('on',combineMode);
+    toggle.setAttribute('aria-pressed',String(combineMode));
+    toggle.textContent=combineMode?'Hotovo':'+ Kombinovat s další nemocí';
+  }
+
+  if(!summary)return;
+  if(!hasFilter||(!combineMode&&!isCombination())){
+    summary.hidden=true;
+    summary.innerHTML='';
+    return;
+  }
+  summary.hidden=false;
+  const chips=activeDiseaseKeys().map((key,i)=>`<span class="fcombo-chip">${i?'<i aria-hidden="true">+</i>':''}${esc(DISEASES[key]?.label||key)}${i?`<button type="button" data-remove-disease="${esc(key)}" aria-label="Odebrat ${esc(DISEASES[key]?.label||key)} z kombinace">×</button>`:''}</span>`).join('');
+  const hint=combineMode
+    ? (isCombination()?'Klikněte na další nemoc v seznamu výše, nebo kombinaci ukončete tlačítkem Hotovo.':'Vyberte v seznamu výše další nemoc, kterou chcete přidat.')
+    : '';
+  summary.innerHTML=`<div class="fcombo-row">${chips}</div>
+    ${isCombination()?`<span class="fcombo-count">${esc(countDestinations(combinedHits().size))} v průniku</span>`:''}
+    ${hint?`<span class="fcombo-hint">${esc(hint)}</span>`:''}
+    ${isCombination()?`<button class="fcombo-clear" type="button" data-clear-combination>Zrušit kombinaci</button>`:''}`;
+
+  summary.querySelectorAll('[data-remove-disease]').forEach(btn=>{
+    btn.addEventListener('click',()=>toggleExtraDisease(btn.dataset.removeDisease));
+  });
+  summary.querySelector('[data-clear-combination]')?.addEventListener('click',()=>{
+    extraDiseases=[];
+    invalidateCombinedHits();
+    applyCombinationChange();
+  });
+}
+
+function setCombineMode(on){
+  if(!activeDisease||activeDisease==='all')return;
+  combineMode=!!on;
+  if(!combineMode&&!isCombination())renderCombineUi();
+  else renderCombineUi();
+  syncFilterButtons();
+}
+
+async function toggleExtraDisease(key){
+  if(!DISEASES[key]||!activeDisease||activeDisease==='all')return;
+  if(key===activeDisease)return;
+
+  if(extraDiseases.includes(key)){
+    extraDiseases=extraDiseases.filter(k=>k!==key);
+    invalidateCombinedHits();
+    applyCombinationChange();
+    return;
+  }
+
+  const token=++filterRequestToken;
+  const status=document.getElementById('filter-status');
+  const loader=document.getElementById('filter-loader');
+  if(loader)loader.classList.add('on');
+  if(status)status.textContent=`Načítám filtr: ${DISEASES[key].label}…`;
+
+  await ensureDiseaseIndex(key,{token});
+  if(token!==filterRequestToken)return;
+  if(loader)loader.classList.remove('on');
+
+  extraDiseases=unique([...extraDiseases,key]);
+  /* Podfiltry v kombinaci neplatí, aby průnik nebyl zavádějící. */
+  activeYellowFeverFacet='all';
+  activeDengueFacet='all';
+  invalidateCombinedHits();
+  applyCombinationChange();
+}
+
+function applyCombinationChange(){
+  invalidateCombinedHits();
+  filterDestinationMismatch=null;
+  const status=document.getElementById('filter-status');
+  if(status){
+    status.textContent=isCombination()
+      ? `${combinationLabel()}: ${countDestinations(combinedHits().size)} se všemi vybranými riziky zároveň.`
+      : `${DISEASES[activeDisease].label}: zvýrazněno ${countDestinations(effectiveDiseaseHits(activeDisease).size)}${diseaseSourceLabel(activeDisease)}.`;
+  }
+  syncFilterButtons();
+  renderCombineUi();
   renderMapFilterLegend();
   renderMapLegend();
   repaintMap();
@@ -1968,8 +2195,19 @@ async function setDiseaseFilter(key){
 
 function setupFilters(){
   document.querySelectorAll('.fbtn[data-disease]').forEach(btn=>{
-    btn.addEventListener('click',()=>setDiseaseFilter(btn.dataset.disease));
+    btn.addEventListener('click',()=>{
+      const key=btn.dataset.disease;
+      /* V režimu kombinace přidává klik další nemoc; „Všechny destinace“
+         a klik na hlavní nemoc se chovají jako běžný filtr. */
+      if(combineMode&&key!=='all'&&key!==activeDisease&&activeDisease!=='all'){
+        toggleExtraDisease(key);
+        return;
+      }
+      setDiseaseFilter(key);
+    });
   });
+
+  document.getElementById('filter-combine')?.addEventListener('click',()=>setCombineMode(!combineMode));
 
   document.querySelectorAll('.qchip[data-q]').forEach(btn=>{
     btn.addEventListener('click',()=>{
@@ -2049,12 +2287,14 @@ function scrollToDetailSection(section=''){
 }
 
 function destinationMatchesActiveFilter(info){
-  return !info||!activeDisease||activeDisease==='all'||!diseaseIndex.has(activeDisease)||diseaseContainsMapId(activeDisease,info.id);
+  if(!info||!activeDisease||activeDisease==='all')return true;
+  if(!isCombination()&&!diseaseIndex.has(activeDisease))return true;
+  return matchesActiveFilter(info.id);
 }
 
 function destinationFilterNoticeHtml(info,{action=false}={}){
   if(destinationMatchesActiveFilter(info))return'';
-  const diseaseName=DISEASES[activeDisease]?.label||'aktuálnímu filtru';
+  const diseaseName=isCombination()?combinationLabel():(DISEASES[activeDisease]?.label||'aktuálnímu filtru');
   return `<div class="destination-filter-notice"><strong>${esc(info.name)} není mezi destinacemi filtru ${esc(diseaseName)}.</strong>${action?`<button type="button" data-mi-action="clear-filter">Zrušit filtr</button>`:''}</div>`;
 }
 
@@ -2187,11 +2427,13 @@ function renderNoApiData(info){
   const vb=document.getElementById('vb');
   const external=externalDiseaseItems(info,null);
   if(vc)vc.innerHTML=external.length?detailBadgeHtml('vcb vcbx',countWithNoun(external.length,...COUNT_FORMS.external),'external'):'';
+  /* Bez obecné poznámky o konzultaci – odstavec níže už na situaci reaguje
+     konkrétněji a dvě nabídky konzultace za sebou působily jako výplň. */
   if(vb)vb.innerHTML=`${destinationFilterNoticeHtml(info)}<p class="cnote">
     Pro destinaci <strong>${esc(info.name)}</strong> zatím nemáme cestovní doporučení.
     Očkování a ochranu před nemocemi s vámi rádi projdeme osobně — naši specialisté
     v očkovacích centrech Avenier poradí i s destinacemi, které v mapě nenajdete.
-  </p>${externalDiseaseSectionHtml(info,null)}${consultationNoteHtml()}`;
+  </p>${externalDiseaseSectionHtml(info,null)}`;
   setupDetailBadgeButtons(vc);
 }
 
@@ -2606,7 +2848,8 @@ function updateUrlState(){
     const url=new URL(window.location.href);
     const params=url.searchParams;
 
-    if(activeDisease&&activeDisease!=='all')params.set(URL_PARAM.disease,activeDisease);
+    const keys=activeDiseaseKeys();
+    if(keys.length)params.set(URL_PARAM.disease,keys.join(','));
     else params.delete(URL_PARAM.disease);
 
     const facet=activeFacetForShare();
@@ -2629,26 +2872,36 @@ async function applyStateFromUrl(){
   const facet=params.get(URL_PARAM.facet);
   const destination=params.get(URL_PARAM.destination);
 
+  /* Parametr filtr může nést i kombinaci: ?filtr=malaria,yellow-fever */
+  const diseaseKeys=String(disease||'').split(',').map(k=>k.trim()).filter(k=>DISEASES[k]);
+  const primaryDisease=diseaseKeys[0]||null;
+
   try{
-    if(disease&&DISEASES[disease]){
-      await setDiseaseFilter(disease);
-      if(facet){
-        if(disease==='yellow-fever')setYellowFeverFacet(facet);
-        else if(disease==='dengue')setDengueFacet(facet);
+    if(primaryDisease){
+      await setDiseaseFilter(primaryDisease);
+      for(const extra of diseaseKeys.slice(1)){
+        await toggleExtraDisease(extra);
+      }
+      /* U odkazu s kombinací rovnou zapneme režim přidávání, aby klik na další
+         nemoc kombinaci rozšířil místo toho, aby ji nečekaně zrušil. */
+      if(diseaseKeys.length>1)setCombineMode(true);
+      if(facet&&diseaseKeys.length===1){
+        if(primaryDisease==='yellow-fever')setYellowFeverFacet(facet);
+        else if(primaryDisease==='dengue')setDengueFacet(facet);
       }
     }
     if(destination){
       const id=findDestinationByShareKey(destination);
       if(id!==null&&id!==undefined){
         const info=FI.get(normId(id));
-        const matches=!disease||!DISEASES[disease]||activeDisease==='all'||diseaseContainsMapId(activeDisease,id);
+        const matches=!primaryDisease||activeDisease==='all'||matchesActiveFilter(id);
         if(matches){
           selectCountry(id);
         }else if(info){
           filterDestinationMismatch=info;
           renderFilterResults();
           const status=document.getElementById('filter-status');
-          if(status)status.textContent=`${info.name} neodpovídá filtru ${DISEASES[activeDisease].label}; mapa zůstává v přehledu filtru.`;
+          if(status)status.textContent=`${info.name} neodpovídá filtru ${isCombination()?combinationLabel():DISEASES[activeDisease].label}; mapa zůstává v přehledu filtru.`;
         }
       }else console.warn('Destinace z odkazu se nepodařilo najít:',destination);
     }

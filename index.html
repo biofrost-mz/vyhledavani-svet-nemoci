@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mapa očkování a zdravotních rizik · Avenier</title>
 <link rel="stylesheet" href="assets/css/fonts.css?v=24.1">
-<link rel="stylesheet" href="assets/css/map.css?v=24.3">
+<link rel="stylesheet" href="assets/css/map.css?v=24.4">
 </head>
 <body class="oc-map-page">
 
@@ -104,6 +104,8 @@
         <span class="dctrl"><button class="fbtn" data-disease="chagas" type="button">Chagasova nemoc</button><a class="dlink" href="https://www.ockovacicentrum.cz/cz/americka-trypanozomiaza-chagasova-nemoc" target="_blank" rel="noopener noreferrer" aria-label="Otevřít detail nemoci: Chagasova nemoc">↗</a></span>
       </div>
     </details>
+    <button class="fbtn combine" id="filter-combine" type="button" aria-pressed="false" hidden>+ Kombinovat s další nemocí</button>
+    <div class="fcombo" id="filter-combo" aria-live="polite" hidden></div>
     <span class="fstatus" id="filter-status">Vyberte nemoc nebo riziko a mapa zvýrazní relevantní destinace.</span>
     <div class="fbar" id="filter-loader"><span></span></div>
   </div>
@@ -144,7 +146,7 @@
 
 <script src="assets/vendor/d3.min.js?v=24.1"></script>
 <script src="assets/vendor/topojson.min.js?v=24.1"></script>
-<script src="assets/js/config.js?v=24.3"></script>
-<script src="assets/js/app.js?v=24.3"></script>
+<script src="assets/js/config.js?v=24.4"></script>
+<script src="assets/js/app.js?v=24.4"></script>
 </body>
 </html>

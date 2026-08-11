@@ -131,6 +131,13 @@ assert(mapCss.includes('border-top-color:var(--oc-blue)!important')&&mapCss.incl
 assert(app.includes('function mapFocusLayout')&&app.includes("matchMedia?.('(max-width: 640px)').matches")&&app.includes('y:availableHeight/2'),'Mobilní zoom neposouvá destinaci do volné horní poloviny mapy.');
 assert(app.includes('dy/focus.availableHeight')&&app.includes('translate(focus.x,focus.y)'),'Přizpůsobení polygonu nebo bodové destinace ignoruje mobilní volnou plochu.');
 
+/* Kombinace filtrů: průnik vybraných nemocí. */
+assert(app.includes('function combinedHits')&&app.includes('function toggleExtraDisease'),'Chybí logika kombinace filtrů.');
+assert(app.includes('function matchesActiveFilter'),'Rozhodování o shodě s filtrem nemá jediné místo.');
+assert(html.includes('id="filter-combine"')&&html.includes('id="filter-combo"'),'V rozhraní chybí ovládání kombinace filtrů.');
+assert(app.includes("const COMBO_COLOR="),'Kombinace nemá vlastní barvu v mapě.');
+assert(app.includes('opts.combo')&&app.includes('combinationLabel()'),'Export nezohledňuje kombinaci filtrů.');
+
 /* Sdílení stavu přes URL. */
 assert(/URL_PARAM=\{disease:'filtr',facet:'kategorie',destination:'zeme'\}/.test(app),'Chybí parametry pro sdílení stavu v URL.');
 assert(app.includes('function applyStateFromUrl')&&app.includes('function updateUrlState'),'Chybí obnovení nebo zápis stavu do URL.');
