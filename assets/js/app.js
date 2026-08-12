@@ -2979,13 +2979,14 @@ function routeComparisonHtml(items,infos,unknown){
   }).join('');
   const head=infos.map(info=>`<th scope="col" data-route-column="${esc(normId(info.id))}">${esc(info.name)}</th>`).join('');
   const filters=infos.map(info=>`<button type="button" data-route-filter-country="${esc(normId(info.id))}" aria-pressed="false">${esc(info.name)}</button>`).join('');
-  const initialRowLimit=window.matchMedia('(max-width:640px)').matches?6:10;
+  const initialRowLimit=10;
   const extraCount=Math.max(0,items.length-initialRowLimit);
   return `<section class="route-comparison" data-route-initial-limit="${initialRowLimit}" aria-labelledby="route-comparison-title">
     <div class="route-comparison-head"><div><h3 id="route-comparison-title">Přehled podle destinací</h3><p>Rychlé porovnání toho, kde je jednotlivé doporučení uvedeno.</p></div>
       <div class="route-matrix-legend"><span><i class="yes">✓</i> uvedeno</span><span><i class="no">—</i> neuvedeno</span>${missingIds.size?'<span><i class="unknown">?</i> bez údajů</span>':''}</div>
     </div>
-    <div class="route-matrix-filters" aria-label="Filtrovat přehled podle destinací"><span>Zobrazit:</span><button type="button" data-route-filter-all aria-pressed="true">Všechny destinace</button>${filters}</div>
+    <div class="route-matrix-filters" aria-label="Filtrovat přehled podle destinací"><span>Filtrovat:</span><button type="button" data-route-filter-all aria-pressed="true">Všechny destinace</button>${filters}</div>
+    <p class="route-mobile-scroll-hint">Tabulku můžete posunout do strany. Názvy nemocí zůstávají vlevo.</p>
     <div class="route-table-scroll" tabindex="0" aria-label="Srovnávací tabulka doporučení podle destinací">
       <table class="route-matrix"><thead><tr><th scope="col">Očkování nebo riziko</th>${head}<th scope="col"><button class="route-summary-sort" type="button" data-route-sort-coverage aria-label="Seřadit všechny nemoci podle zastoupení">Souhrn <span aria-hidden="true">↕</span></button></th></tr></thead><tbody>${rows}</tbody></table>
     </div>

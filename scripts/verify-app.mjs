@@ -242,7 +242,9 @@ assert(app.includes("data-mi-action=\"route-prev\"")&&app.includes("data-mi-acti
 assert(html.includes('id="route-item-dialog"')&&app.includes('function setupRouteItemDialog'),'Souhrn trasy nemá detail doporučení podle destinací.');
 assert(app.includes('const showItemTooltip=')&&mapCss.includes('.route-item-tooltip-group.yes')&&mapCss.includes('.route-item-tooltip-group.no'),'Poměr v souhrnu trasy nemá desktopový náhled s rozlišením uvedeno/neuvedeno.');
 assert(app.includes("sortMode='category'")&&app.includes('data-route-sort-reset'),'Srovnávací tabulka nemá globální řazení podle souhrnu a reset.');
-assert(app.includes('data-route-destination-name')&&mapCss.includes('content:attr(data-route-destination-name)'),'Mobilní srovnání neobsahuje názvy destinací v kartovém rozvržení.');
+assert(app.includes('data-route-destination-name')&&app.includes('route-mobile-scroll-hint'),'Mobilní srovnání neobsahuje názvy destinací nebo nápovědu k posunu tabulky.');
+assert(app.includes('<span>Filtrovat:</span>')&&mapCss.includes('.route-matrix-filters>span'),'Mobilní srovnání nemá viditelné filtrování destinací.');
+assert(mapCss.includes('display:table-cell!important')&&mapCss.includes('width:142px!important'),'Mobilní srovnání není jedna tabulka s nemocí a značkami ve stejném řádku.');
 /* Nenačtený detail se nesmí v trase vydávat za potvrzené „doporučení neuvedeno“.
    Dřív se výpadek API kreslil jako „—“ a karta hlásila „0 povinných očkování“. */
 assert(/const failed=\[\];[\s\S]{0,400}else failed\.push\(info\)/.test(app),'Trasa nerozlišuje destinaci s nenačteným detailem od destinace bez doporučení.');

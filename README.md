@@ -336,3 +336,11 @@ potvrzené „doporučení neuvedeno“ — výpadek sítě se tvářil jako zdr
 - na desktopu se po najetí nebo zaměření položky s poměrem `2/2` zobrazí náhled rozdělený na zelené „Uvedeno v“ a šedé „Neuvedeno v“; kliknutí dál otevírá úplný dialog,
 - lokální testovací server naslouchá pouze na `127.0.0.1`, takže omylem nezpřístupní projekt do sítě,
 - statické assety mají verzovaný cache-buster `v=24.10`.
+
+## v24.11 – mobilní srovnávací tabulka
+
+- mobilní přehled je znovu jedna souvislá tabulka podobná desktopu; nemoc, značky destinací a souhrn jsou ve stejném řádku,
+- první sloupec s nemocí zůstává viditelný při vodorovném posunu tabulky,
+- filtr destinací je na telefonu výrazně označený a samostatně vodorovně posuvný,
+- dlouhé názvy nemocí i zemí se zalamují v kompaktních sloupcích,
+- statické assety mají verzovaný cache-buster `v=24.11`.
