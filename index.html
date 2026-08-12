@@ -27,7 +27,7 @@
 <meta name="twitter:image" content="https://vyhledavani-svet-nemoci.vercel.app/assets/img/share/default.jpg">
 
 <link rel="stylesheet" href="assets/css/fonts.css?v=24.1">
-<link rel="stylesheet" href="assets/css/map.css?v=24.8">
+<link rel="stylesheet" href="assets/css/map.css?v=24.10">
 </head>
 <body class="oc-map-page">
 
@@ -112,10 +112,10 @@
 <div class="sw">
   <div class="si">
     <span class="sico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="6.5"></circle><path d="m16 16 4.2 4.2"></path></svg></span>
-    <input id="av-search" type="text" placeholder="Hledat destinaci… (např. Vietnam, Keňa, Bali)" autocomplete="off" aria-label="Vyhledat destinaci">
+    <input id="av-search" type="text" placeholder="Hledat destinaci… (např. Vietnam, Keňa, Bali)" autocomplete="off" aria-label="Vyhledat destinaci" role="combobox" aria-expanded="false" aria-controls="av-dd" aria-autocomplete="list" aria-haspopup="listbox">
     <button class="sclr" id="av-clr" aria-label="Vymazat">&#215;</button>
   </div>
-  <div id="av-dd" role="listbox"></div>
+  <div id="av-dd" role="listbox" aria-label="Návrhy destinací"></div>
 </div>
 
 <div class="filters" aria-label="Filtrace destinací podle nemoci">
@@ -189,6 +189,7 @@
     </div>
   </div>
   <div id="filter-results" class="filter-results" aria-live="polite"></div>
+  <section id="region-panel" class="region-panel" aria-label="Destinace v regionu" hidden></section>
   <section id="route-panel" class="route-panel" aria-label="Souhrn trasy" hidden></section>
   <div id="pnl"></div>
   <div class="leg" id="map-legend" aria-live="polite"></div>
@@ -198,7 +199,7 @@
 
 <script src="assets/vendor/d3.min.js?v=24.1"></script>
 <script src="assets/vendor/topojson.min.js?v=24.1"></script>
-<script src="assets/js/config.js?v=24.8"></script>
-<script src="assets/js/app.js?v=24.8"></script>
+<script src="assets/js/config.js?v=24.10"></script>
+<script src="assets/js/app.js?v=24.10"></script>
 </body>
 </html>

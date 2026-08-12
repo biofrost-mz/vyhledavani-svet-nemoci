@@ -77,6 +77,9 @@ function getDiseaseOverride(key){
   return CUSTOM_DISEASE_OVERRIDES[key];
 }
 
+/* Ruční úprava filtru mění effectiveDiseaseHits, ze kterých se počítá i
+   kombinace. Bez zneplatnění cache držela kombinace staré výsledky, dokud
+   uživatel nesáhl na filtr. Invalidace patří sem, ne na volající. */
 function setDiseaseOverride(key,id,mode){
   const nid=String(id);
   const o=getDiseaseOverride(key);
@@ -85,6 +88,7 @@ function setDiseaseOverride(key,id,mode){
   if(mode==='include')o.include.push(nid);
   if(mode==='exclude')o.exclude.push(nid);
   saveDiseaseOverrides();
+  invalidateCombinedHits();
 }
 
 function clearDiseaseOverrides(key=null){
@@ -94,6 +98,7 @@ function clearDiseaseOverrides(key=null){
     CUSTOM_DISEASE_OVERRIDES={};
   }
   saveDiseaseOverrides();
+  invalidateCombinedHits();
 }
 
 function setToSetValues(arr){
@@ -189,6 +194,40 @@ function apiDestinationMapping(row){
 
 function mappedIdForInfo(id,info){
   return normId(info?.mapId ?? id);
+}
+
+/* ── Rejstřík destinací podle klíče ──
+   Hledání destinace podle slugu nebo názvu bylo lineárním skenem celého FI
+   s normalizací obou polí na každou dvojici. Při sestavení indexu nemocí to
+   znamenalo přes milion volání slugKey() a skoro 300 ms zamrzlého vlákna při
+   prvním kliknutí na filtr. Klíče se po sestavení FI nemění, stačí je spočítat
+   jednou. Mapy jsou tři, aby zůstala zachovaná přednost slug → id → název. */
+const destBySlug=new Map();
+const destByName=new Map();
+const destById=new Map();
+
+function rebuildDestinationKeyIndex(){
+  [destBySlug,destByName,destById].forEach(map=>map.clear());
+  const add=(map,key,id)=>{
+    if(!key)return;
+    const list=map.get(key);
+    if(list){if(!list.includes(id))list.push(id);}
+    else map.set(key,[id]);
+  };
+  FI.forEach((info,id)=>{
+    const nid=normId(id);
+    add(destBySlug,slugKey(info?.slug),nid);
+    add(destByName,slugKey(info?.name),nid);
+    add(destById,slugKey(String(id)),nid);
+  });
+}
+
+function destinationIdsFor(rawKey,maps){
+  const key=slugKey(rawKey);
+  if(!key)return [];
+  const out=[];
+  maps.forEach(map=>{(map.get(key)||[]).forEach(id=>{if(!out.includes(id))out.push(id);});});
+  return out;
 }
 
 function buildApiIndex(list){
@@ -490,6 +529,13 @@ function setCachedDetailError(slug){
   detailCache.set(String(slug||''),{status:'error',ts:Date.now()});
 }
 
+/* Ruční „Zkusit znovu“ nesmí čekat na DETAIL_ERROR_RETRY_MS – uživatel právě
+   řekl, že to chce zkusit teď. */
+function clearCachedDetailError(slug){
+  const key=String(slug||'');
+  if(detailCache.get(key)?.status==='error')detailCache.delete(key);
+}
+
 function hydrateDetailCache(){
   try{
     const raw=localStorage.getItem(DETAIL_STORAGE_KEY);
@@ -548,9 +594,23 @@ async function apiFetch(url){
 /* ── HTML escape ── */
 function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
+/* Adresy z API vkládáme rovnou do href. esc() ochrání atribut, ale nezabrání
+   tomu, aby se z datové položky stal spustitelný `javascript:` odkaz.
+   Pouštíme proto jen http(s). */
+function safeUrl(value){
+  const raw=String(value??'').trim();
+  if(!raw)return '';
+  try{
+    const url=new URL(raw,window.location.href);
+    return url.protocol==='http:'||url.protocol==='https:'?url.href:'';
+  }catch(e){
+    return '';
+  }
+}
+
 function pillHtml(v,cls){
   const name=esc(v?.name||v?.title||v);
-  const url=v?.url||v?.www||'';
+  const url=safeUrl(v?.url||v?.www);
   if(url)return `<a class="pill ${cls}" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${name}</a>`;
   return `<span class="pill ${cls}">${name}</span>`;
 }
@@ -675,13 +735,7 @@ function resolveApiRowDestinationIds(row){
   if(!keys.size)return [];
 
   const ids=[];
-  FI.forEach((info,id)=>{
-    const slug=slugKey(info.slug);
-    const name=slugKey(info.name);
-    if((slug && keys.has(slug)) || (name && keys.has(name))){
-      ids.push(normId(id));
-    }
-  });
+  keys.forEach(key=>{ids.push(...destinationIdsFor(key,[destBySlug,destByName]));});
   return unique(ids.map(normId));
 }
 
@@ -714,11 +768,7 @@ function resolveDiseaseIndexDestinationIds(rawIds){
       resolved.push(direct);
       return;
     }
-    const key=slugKey(raw);
-    if(!key)return;
-    FI.forEach((info,id)=>{
-      if(slugKey(info?.slug)===key||slugKey(info?.name)===key)resolved.push(normId(id));
-    });
+    resolved.push(...destinationIdsFor(raw,[destBySlug,destByName]));
   });
   return unique(resolved);
 }
@@ -883,12 +933,13 @@ async function buildDiseaseIndexFromDetails(key,{token=null}={}){
   return hits;
 }
 
+/* Záměrně jen podle slugu, ne podle názvu – statické seznamy CDC/WHO se
+   párují na identifikátor destinace v API, ne na její české pojmenování. */
 function configuredStaticIds(key){
   const cfg=staticDiseaseConfig(key);
-  const slugs=new Set((cfg?.destinationSlugs||[]).map(slugKey));
   const ids=new Set();
-  FI.forEach((info,id)=>{
-    if(slugs.has(slugKey(info?.slug)))ids.add(normId(id));
+  (cfg?.destinationSlugs||[]).forEach(rawSlug=>{
+    destinationIdsFor(rawSlug,[destBySlug]).forEach(id=>ids.add(id));
   });
   return ids;
 }
@@ -2031,8 +2082,29 @@ async function drawMapDominantExport(ctx,meta,logo,bounds){
   ctx.restore();
 }
 
-async function createMapExportBlob(options={}){
-  if(document.fonts?.ready)await document.fonts.ready;
+/* Fonty a zpracované logo se nemění mezi exporty, ale dřív se načítaly a
+   ořezávaly znovu při každém kliknutí – a hlavně až po něm. První export proto
+   trval 13 s, každý další 1,5–2 s. Teď se podklady chystají už při otevření
+   dialogu, tedy zatímco uživatel vybírá rozvržení. */
+let exportAssetsPromise=null;
+
+function prepareExportAssets(){
+  if(!exportAssetsPromise){
+    exportAssetsPromise=Promise.all([
+      document.fonts?.ready||Promise.resolve(),
+      loadExportImage(MAP_EXPORT.logo).then(exportLogoCanvas)
+    ]).then(([,logo])=>logo).catch(e=>{
+      exportAssetsPromise=null;
+      throw e;
+    });
+  }
+  return exportAssetsPromise;
+}
+
+async function createMapExportBlob(options={},onProgress=null){
+  const step=message=>{try{onProgress?.(message);}catch(e){}};
+  step('Připravuji podklady…');
+  const logo=await prepareExportAssets();
   const opts=normalizedExportOptions(options);
   const meta=exportMetadata(opts);
   const canvas=document.createElement('canvas');
@@ -2040,12 +2112,14 @@ async function createMapExportBlob(options={}){
   canvas.height=MAP_EXPORT.height;
   const ctx=canvas.getContext('2d');
 
-  const logoImage=await loadExportImage(MAP_EXPORT.logo);
-  const logo=exportLogoCanvas(logoImage);
+  /* Vzory se váží na plátno, ve kterém vznikly; pro nové plátno je stavíme znovu. */
+  exportStripeCache.clear();
   const bounds=logo._contentBounds||{x:0,y:0,width:logo.width,height:logo.height};
+  step('Vykresluji mapu…');
   if(opts.layout==='classic')await drawClassicExport(ctx,meta,logo,bounds);
   else await drawMapDominantExport(ctx,meta,logo,bounds);
 
+  step('Ukládám PNG…');
   return{blob:await canvasBlob(canvas),meta,width:canvas.width,height:canvas.height};
 }
 
@@ -2079,6 +2153,8 @@ function openMapExportDialog(){
   const defaultLayout=dialog.querySelector('input[name="export-layout"][value="map"]');
   if(defaultLayout)defaultLayout.checked=true;
   dialog.showModal();
+  /* Fonty a logo chystáme hned; než uživatel vybere volby, bývají hotové. */
+  prepareExportAssets().catch(e=>console.warn('Podklady exportu se nepodařilo přednačíst:',e));
 }
 
 function readMapExportOptions(){
@@ -2098,7 +2174,9 @@ async function downloadMapPng(options={},trigger=null){
   label.textContent='Připravuji PNG…';
   try{
     const opts=normalizedExportOptions(options);
-    const result=await createMapExportBlob(opts);
+    /* Export trvá jednotky sekund. Statické „Připravuji PNG…“ nedávalo vědět,
+       jestli se něco děje, nebo to zamrzlo. */
+    const result=await createMapExportBlob(opts,message=>{label.textContent=message;});
     const namePart=opts.combo
       ? opts.diseases.map(slugKey).join('-a-')
       : slugKey(opts.disease==='all'?'vsechny-destinace':opts.disease);
@@ -2506,7 +2584,7 @@ function vaxName(v){
 
 function miniPillHtml(v,cls='d'){
   const name=vaxName(v);
-  const url=v?.url||v?.www||'';
+  const url=safeUrl(v?.url||v?.www);
   if(url)return `<a class="mi-link-pill ${cls}" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${name}</a>`;
   return `<span class="mi-pill ${cls}">${name}</span>`;
 }
@@ -2570,7 +2648,7 @@ function renderMapInfo(info,data=null,loading=false){
   if(!box||!info)return;
   /* Odkaz na stránku destinace nabízíme jen tam, kde ji web opravdu má.
      Skládaná adresa u destinací bez doporučení končila na chybové stránce. */
-  const url=info.www||'';
+  const url=safeUrl(info.www);
   const centerUrl='https://www.ockovacicentrum.cz/cz/kde-ockujeme';
   const {pov,zak,dop}=vaxArrays(data);
   const np=pov.length, nz=zak.length, nd=dop.length;
@@ -2719,6 +2797,7 @@ function clearRoute(){
 
 function onRouteChanged(){
   renderRouteBar();
+  renderRegionPanel();
   renderRoutePanel();
   repaintMap();
   if(curInfo)renderMapInfo(curInfo,getCachedDetail(curInfo.slug),false);
@@ -2763,7 +2842,7 @@ function routeItemsFromDetails(entries){
         if(!name)return;
         const key=slugKey(name);
         const existing=items.get(key);
-        const url=item?.url||item?.www||'';
+        const url=safeUrl(item?.url||item?.www);
         const destination={id:info.id,name:info.name};
         if(existing){
           if(ROUTE_CATEGORY_ORDER.indexOf(category)<ROUTE_CATEGORY_ORDER.indexOf(existing.category))existing.category=category;
@@ -2790,7 +2869,7 @@ function routeItemHtml(item,total){
   </button>`;
 }
 
-function setupRouteItemDialog(panel){
+function setupRouteItemDialog(panel,unknownIds=new Set()){
   const dialog=document.getElementById('route-item-dialog');
   if(!dialog)return;
   if(dialog.dataset.bound!=='1'){
@@ -2799,20 +2878,74 @@ function setupRouteItemDialog(panel){
     dialog.querySelector('.route-item-dialog-close')?.addEventListener('click',close);
     dialog.addEventListener('click',event=>{if(event.target===dialog)close();});
   }
+  let itemTooltip=null;
+  const hideItemTooltip=()=>{
+    const triggerId=itemTooltip?.dataset.triggerId;
+    if(triggerId)document.getElementById(triggerId)?.removeAttribute('aria-describedby');
+    itemTooltip?.remove();
+    itemTooltip=null;
+  };
+  const itemBreakdown=button=>{
+    const includedIds=new Set((button.dataset.routeItemDestinations||'').split(',').filter(Boolean));
+    const infos=routeInfos();
+    const isUnknown=info=>unknownIds.has(String(normId(info.id)));
+    return{
+      infos,
+      included:infos.filter(info=>includedIds.has(String(normId(info.id)))),
+      excluded:infos.filter(info=>!includedIds.has(String(normId(info.id)))&&!isUnknown(info)),
+      unknown:infos.filter(isUnknown)
+    };
+  };
+  const tooltipGroup=(cls,label,items,emptyLabel)=>`<div class="route-item-tooltip-group ${cls}"><strong>${esc(label)}</strong><span>${items.map(info=>esc(info.name)).join(', ')||esc(emptyLabel)}</span></div>`;
+  const showItemTooltip=button=>{
+    hideItemTooltip();
+    const {included,excluded,unknown}=itemBreakdown(button);
+    const tooltipId=`route-item-tip-${Math.random().toString(36).slice(2,9)}`;
+    if(!button.id)button.id=`route-item-${Math.random().toString(36).slice(2,9)}`;
+    itemTooltip=document.createElement('div');
+    itemTooltip.id=tooltipId;
+    itemTooltip.className='route-item-tooltip';
+    itemTooltip.setAttribute('role','tooltip');
+    itemTooltip.dataset.triggerId=button.id;
+    itemTooltip.innerHTML=`<div class="route-item-tooltip-title">${esc(button.dataset.routeItemName||'Doporučení')}</div>
+      ${tooltipGroup('yes','Uvedeno v',included,'Žádná destinace')}
+      ${tooltipGroup('no','Neuvedeno v',excluded,'Žádná destinace')}
+      ${unknown.length?tooltipGroup('unknown','Bez údajů',unknown,''):''}
+      <div class="route-item-tooltip-hint">Kliknutím otevřete podrobný přehled.</div>`;
+    document.body.appendChild(itemTooltip);
+    button.setAttribute('aria-describedby',tooltipId);
+    const rect=button.getBoundingClientRect();
+    const tipRect=itemTooltip.getBoundingClientRect();
+    const left=Math.max(10,Math.min(window.innerWidth-tipRect.width-10,rect.left+rect.width/2-tipRect.width/2));
+    const below=rect.bottom+10;
+    const top=below+tipRect.height<=window.innerHeight-10?below:Math.max(10,rect.top-tipRect.height-10);
+    itemTooltip.style.left=`${left}px`;
+    itemTooltip.style.top=`${top}px`;
+  };
   panel?.querySelectorAll('.route-item-card[data-route-item-name]').forEach(button=>{
+    button.addEventListener('mouseenter',()=>{
+      if(window.matchMedia('(hover:hover) and (pointer:fine)').matches)showItemTooltip(button);
+    });
+    button.addEventListener('mouseleave',hideItemTooltip);
+    button.addEventListener('focus',()=>showItemTooltip(button));
+    button.addEventListener('blur',hideItemTooltip);
     button.addEventListener('click',()=>{
-      const includedIds=new Set((button.dataset.routeItemDestinations||'').split(',').filter(Boolean));
-      const infos=routeInfos();
-      const included=infos.filter(info=>includedIds.has(String(normId(info.id))));
-      const excluded=infos.filter(info=>!includedIds.has(String(normId(info.id))));
+      hideItemTooltip();
+      const {infos,included,excluded,unknown}=itemBreakdown(button);
+      /* Destinace bez načtených dat nepatří mezi „neuvedeno“ – o té položce
+         u nich nic nevíme. */
+      const known=infos.length-unknown.length;
       const title=document.getElementById('route-item-dialog-title');
       const summary=document.getElementById('route-item-dialog-summary');
       const groups=document.getElementById('route-item-dialog-groups');
       const actions=document.getElementById('route-item-dialog-actions');
       if(title)title.textContent=button.dataset.routeItemName||'Doporučení';
-      if(summary)summary.textContent=`Doporučení je uvedeno u ${included.length} z ${infos.length} destinací v trase.`;
+      if(summary)summary.textContent=unknown.length
+        ? `Doporučení je uvedeno u ${included.length} z ${known} ${destinationsWord(known)}, u kterých známe doporučení. ${countDestinations(unknown.length)} v trase ${pluralForm(unknown.length,'je','jsou','je')} bez údajů.`
+        : `Doporučení je uvedeno u ${included.length} z ${infos.length} destinací v trase.`;
       if(groups)groups.innerHTML=`<section class="route-item-dialog-group yes"><h3><span aria-hidden="true">✓</span> Doporučení uvedeno</h3><div>${included.map(info=>`<button type="button" data-route-dialog-country="${esc(info.id)}">${esc(info.name)}</button>`).join('')||'<p>Žádná destinace</p>'}</div></section>
-        <section class="route-item-dialog-group no"><h3><span aria-hidden="true">—</span> Doporučení neuvedeno</h3><div>${excluded.map(info=>`<button type="button" data-route-dialog-country="${esc(info.id)}">${esc(info.name)}</button>`).join('')||'<p>Žádná destinace</p>'}</div></section>`;
+        <section class="route-item-dialog-group no"><h3><span aria-hidden="true">—</span> Doporučení neuvedeno</h3><div>${excluded.map(info=>`<button type="button" data-route-dialog-country="${esc(info.id)}">${esc(info.name)}</button>`).join('')||'<p>Žádná destinace</p>'}</div></section>
+        ${unknown.length?`<section class="route-item-dialog-group unknown"><h3><span aria-hidden="true">?</span> Bez údajů</h3><div>${unknown.map(info=>`<button type="button" data-route-dialog-country="${esc(info.id)}">${esc(info.name)}</button>`).join('')}</div></section>`:''}`;
       if(actions)actions.innerHTML=button.dataset.routeItemUrl?`<a href="${esc(button.dataset.routeItemUrl)}" target="_blank" rel="noopener noreferrer">Více informací</a>`:'';
       groups?.querySelectorAll('[data-route-dialog-country]').forEach(country=>country.addEventListener('click',()=>{
         dialog.close();
@@ -2823,9 +2956,12 @@ function setupRouteItemDialog(panel){
   });
 }
 
-function routeComparisonHtml(items,infos,missing){
+function routeComparisonHtml(items,infos,unknown){
   if(!items.length||!infos.length)return '';
-  const missingIds=new Set((missing||[]).map(info=>String(normId(info.id))));
+  /* „Bez údajů“ = destinace bez doporučení v datech i ta, které se detail
+     nepodařilo načíst. Ani u jedné nesmí ve sloupci svítit „neuvedeno“. */
+  const missingIds=new Set((unknown||[]).map(info=>String(normId(info.id))));
+  const knownCount=Math.max(0,infos.length-missingIds.size);
   const categoryLabel={povinne:'Povinná očkování',zakladni:'Základní očkování',doporuceni:'Další doporučení a rizika'};
   const rows=items.map(item=>{
     const included=new Set(item.destinations.map(dest=>String(normId(dest.id))));
@@ -2834,17 +2970,18 @@ function routeComparisonHtml(items,infos,missing){
       const unknown=missingIds.has(id);
       const yes=included.has(id);
       const label=unknown?'Doporučení nejsou dostupná':yes?'Uvedeno pro tuto destinaci':'Není uvedeno pro tuto destinaci';
-      return `<td data-route-column="${esc(id)}"><span class="route-matrix-mark ${unknown?'unknown':yes?'yes':'no'}" title="${esc(`${info.name}: ${label}`)}" aria-label="${esc(label)}">${unknown?'?':yes?'✓':'—'}</span></td>`;
+      return `<td data-route-column="${esc(id)}" data-route-destination-name="${esc(info.name)}"><span class="route-matrix-mark ${unknown?'unknown':yes?'yes':'no'}" title="${esc(`${info.name}: ${label}`)}" aria-label="${esc(label)}">${unknown?'?':yes?'✓':'—'}</span></td>`;
     }).join('');
     return `<tr class="route-matrix-row ${item.category}" data-route-category-rank="${ROUTE_CATEGORY_ORDER.indexOf(item.category)}" data-route-name="${esc(slugKey(item.name))}" data-route-row-destinations="${esc(item.destinations.map(dest=>String(normId(dest.id))).join(','))}" data-route-current-count="${item.destinations.length}">
       <th scope="row"><span class="route-matrix-category ${item.category}" tabindex="0" data-tip="${esc(categoryLabel[item.category]||'Další doporučení')}" aria-label="Kategorie: ${esc(categoryLabel[item.category]||'Další doporučení')}"></span>${item.url?`<a href="${esc(item.url)}" target="_blank" rel="noopener noreferrer">${esc(item.name)}</a>`:`<span>${esc(item.name)}</span>`}</th>
-      ${cells}<td class="route-matrix-total"><strong>${item.destinations.length}/${infos.length}</strong></td>
+      ${cells}<td class="route-matrix-total" data-route-destination-name="Souhrn"><strong>${item.destinations.length}/${knownCount}</strong></td>
     </tr>`;
   }).join('');
   const head=infos.map(info=>`<th scope="col" data-route-column="${esc(normId(info.id))}">${esc(info.name)}</th>`).join('');
   const filters=infos.map(info=>`<button type="button" data-route-filter-country="${esc(normId(info.id))}" aria-pressed="false">${esc(info.name)}</button>`).join('');
-  const extraCount=Math.max(0,items.length-10);
-  return `<section class="route-comparison" aria-labelledby="route-comparison-title">
+  const initialRowLimit=window.matchMedia('(max-width:640px)').matches?6:10;
+  const extraCount=Math.max(0,items.length-initialRowLimit);
+  return `<section class="route-comparison" data-route-initial-limit="${initialRowLimit}" aria-labelledby="route-comparison-title">
     <div class="route-comparison-head"><div><h3 id="route-comparison-title">Přehled podle destinací</h3><p>Rychlé porovnání toho, kde je jednotlivé doporučení uvedeno.</p></div>
       <div class="route-matrix-legend"><span><i class="yes">✓</i> uvedeno</span><span><i class="no">—</i> neuvedeno</span>${missingIds.size?'<span><i class="unknown">?</i> bez údajů</span>':''}</div>
     </div>
@@ -2856,24 +2993,25 @@ function routeComparisonHtml(items,infos,missing){
   </section>`;
 }
 
-function setupRouteComparison(panel){
+function setupRouteComparison(panel,unknownIds=new Set()){
   const button=panel?.querySelector('[data-route-matrix-more]');
   const tbody=panel?.querySelector('.route-matrix tbody');
   const sortButton=panel?.querySelector('[data-route-sort-coverage]');
   const resetSortButton=panel?.querySelector('[data-route-sort-reset]');
   let expanded=false;
+  const initialRowLimit=Math.max(1,Number(panel?.querySelector('.route-comparison')?.dataset.routeInitialLimit)||10);
   let sortMode='category';
   let sortDirection='desc';
   const rows=()=>[...(tbody?.querySelectorAll('[data-route-row-destinations]')||[])];
   const refreshRowVisibility=()=>{
     const available=rows().filter(row=>row.dataset.filterHidden!=='true');
     available.forEach((row,index)=>{
-      row.classList.toggle('route-matrix-extra',index>=10);
-      row.hidden=!expanded&&index>=10;
+      row.classList.toggle('route-matrix-extra',index>=initialRowLimit);
+      row.hidden=!expanded&&index>=initialRowLimit;
     });
     rows().filter(row=>row.dataset.filterHidden==='true').forEach(row=>{row.hidden=true;});
     if(button){
-      button.hidden=available.length<=10;
+      button.hidden=available.length<=initialRowLimit;
       button.setAttribute('aria-expanded',String(expanded));
       button.textContent=expanded?'Zobrazit méně':`Zobrazit všechna doporučení (${available.length})`;
     }
@@ -2946,7 +3084,10 @@ function setupRouteComparison(panel){
     allButton.setAttribute('aria-pressed',String(all));
     countryButtons.forEach(btn=>btn.setAttribute('aria-pressed',String(selected.has(btn.dataset.routeFilterCountry))));
     panel.querySelectorAll('[data-route-column]').forEach(cell=>{cell.hidden=!all&&!selected.has(cell.dataset.routeColumn);});
-    const denominator=all?routeIds.length:selected.size;
+    /* Jmenovatel počítá jen destinace, u kterých doporučení opravdu známe –
+       jinak by „2/3“ tvrdilo, že třetí destinace byla ověřená. */
+    const visibleIds=all?routeIds.map(id=>String(normId(id))):[...selected];
+    const denominator=visibleIds.filter(id=>!unknownIds.has(id)).length;
     panel.querySelectorAll('[data-route-item-destinations]').forEach(card=>{
       const ids=new Set((card.dataset.routeItemDestinations||'').split(',').filter(Boolean));
       const count=all?ids.size:[...selected].filter(id=>ids.has(id)).length;
@@ -2976,18 +3117,24 @@ function setupRouteComparison(panel){
   apply();
 }
 
-function routeDestinationCardsHtml(entries,missing){
+function routeDestinationCardsHtml(entries,noData,failed){
   const detailById=new Map(entries.map(entry=>[String(normId(entry.info.id)),entry.data]));
-  const missingIds=new Set((missing||[]).map(info=>String(normId(info.id))));
+  const noDataIds=new Set((noData||[]).map(info=>String(normId(info.id))));
+  const failedIds=new Set((failed||[]).map(info=>String(normId(info.id))));
   return `<section class="route-destinations" aria-labelledby="route-destinations-title">
     <h3 id="route-destinations-title">Destinace v trase</h3>
     <div class="route-destination-grid">${routeInfos().map((info,index)=>{
-      const data=detailById.get(String(normId(info.id)));
+      const key=String(normId(info.id));
+      const data=detailById.get(key);
       const {pov,zak,dop}=vaxArrays(data);
-      const summary=missingIds.has(String(normId(info.id)))
+      /* Nenačtený detail se nesmí vydávat za „nula očkování“. */
+      const state=noDataIds.has(key)?'nodata':failedIds.has(key)?'failed':'ok';
+      const summary=state==='nodata'
         ? 'Bez dostupných cestovních doporučení'
-        : `${countWithNoun(pov.length,...COUNT_FORMS.required)} · ${countWithNoun(zak.length,...COUNT_FORMS.basic)} · ${countWithNoun(dop.length,...COUNT_FORMS.recommended)}`;
-      return `<button class="route-destination-card" type="button" data-route-country="${esc(info.id)}">
+        : state==='failed'
+          ? 'Doporučení se nepodařilo načíst'
+          : `${countWithNoun(pov.length,...COUNT_FORMS.required)} · ${countWithNoun(zak.length,...COUNT_FORMS.basic)} · ${countWithNoun(dop.length,...COUNT_FORMS.recommended)}`;
+      return `<button class="route-destination-card${state==='ok'?'':` is-${state}`}" type="button" data-route-country="${esc(info.id)}">
         <span class="route-destination-order">${index+1}</span>
         <span><strong>${esc(info.name)}</strong><small>${esc(summary)}</small></span>
         <span class="route-destination-open">Detail →</span>
@@ -3030,16 +3177,23 @@ async function renderRoutePanel(){
   <p class="route-loading">Načítám doporučení pro celou trasu…</p>`;
 
   const entries=[];
+  /* Destinace, které doporučení mají, ale detail se nepodařilo načíst.
+     Bez tohoto rozlišení by se výpadek sítě vykreslil jako potvrzené
+     „doporučení není uvedeno“ – u očkování to je nepřijatelné. */
+  const failed=[];
   for(const info of withData){
     const data=await fetchCountryDetail(info);
     if(token!==routeRenderToken)return;
     if(data)entries.push({info,data});
+    else failed.push(info);
   }
   if(token!==routeRenderToken)return;
 
   const items=routeItemsFromDetails(entries);
-  const total=infos.length;
-  const missing=infos.filter(info=>!info.has);
+  const noData=infos.filter(info=>!info.has);
+  const unknown=[...noData,...failed];
+  const unknownIds=new Set(unknown.map(info=>String(normId(info.id))));
+  const total=Math.max(0,infos.length-unknown.length);
   const groups=[
     {key:'povinne',label:'Povinná očkování',cls:'p'},
     {key:'zakladni',label:'Základní očkování',cls:'z'},
@@ -3055,8 +3209,12 @@ async function renderRoutePanel(){
     </section>`;
   }).join('');
 
-  const missingNote=missing.length
-    ? `<p class="route-missing">Pro ${esc(missing.map(i=>i.name).join(', '))} zatím nemáme cestovní doporučení, do souhrnu se proto nepočítají.</p>`
+  const missingNote=noData.length
+    ? `<p class="route-missing">Pro ${esc(noData.map(i=>i.name).join(', '))} zatím nemáme cestovní doporučení, do souhrnu se proto nepočítají.</p>`
+    : '';
+
+  const failedNote=failed.length
+    ? `<p class="route-missing route-missing-error" role="status">Pro ${esc(failed.map(i=>i.name).join(', '))} se doporučení nepodařilo načíst. V přehledu ${pluralForm(failed.length,'je označená','jsou označené','je označeno')} jako <strong>bez údajů</strong> — neznamená to, že se pro ${pluralForm(failed.length,'ni','ně','ně')} žádné očkování neuvádí. <button class="route-retry" type="button" data-route-retry>Zkusit načíst znovu</button></p>`
     : '';
 
   panel.innerHTML=`<div class="route-head">
@@ -3068,19 +3226,27 @@ async function renderRoutePanel(){
   </div>
   <p class="route-intro">Sloučená doporučení pro všechny destinace v trase. Poměr u každé položky ukazuje, v kolika destinacích je doporučení uvedeno; přesné rozdělení najdete v přehledu níže.</p>
   ${consultationNoteHtml()}
-  ${routeDestinationCardsHtml(entries,missing)}
+  ${routeDestinationCardsHtml(entries,noData,failed)}
   ${missingNote}
+  ${failedNote}
   ${sections||'<p class="route-missing">Pro zastávky v trase se zatím nepodařilo načíst žádná doporučení.</p>'}
-  ${routeComparisonHtml(items,infos,missing)}
+  ${routeComparisonHtml(items,infos,unknown)}
   <div class="route-actions">
     <a class="bmore" href="https://www.ockovacicentrum.cz/cz/kde-ockujeme" target="_blank" rel="noopener noreferrer">Najít očkovací centrum</a>
     <button class="bmore secondary" type="button" data-route-clear>Vymazat trasu</button>
   </div>`;
 
   panel.querySelector('[data-route-clear]')?.addEventListener('click',clearRoute);
+  panel.querySelector('[data-route-retry]')?.addEventListener('click',event=>{
+    const btn=event.currentTarget;
+    btn.disabled=true;
+    btn.textContent='Načítám…';
+    failed.forEach(info=>clearCachedDetailError(info.slug));
+    renderRoutePanel();
+  });
   setupRouteCountryButtons(panel);
-  setupRouteItemDialog(panel);
-  setupRouteComparison(panel);
+  setupRouteItemDialog(panel,unknownIds);
+  setupRouteComparison(panel,unknownIds);
 }
 
 
@@ -3212,7 +3378,7 @@ function setupMapKeyboard(){
 function renderPanel(info){
   const wrap=document.getElementById('pnl');
   /* Viz renderMapInfo – odkaz jen tam, kde stránka destinace existuje. */
-  const url=info.www||'';
+  const url=safeUrl(info.www);
   curSlug=info.slug;
   curInfo=info;
   const cacheState=getCachedDetailState(info.slug);
@@ -3399,10 +3565,23 @@ function closePanel(){
 function mapFocusLayout(){
   const mobile=typeof window!=='undefined'&&window.matchMedia?.('(max-width: 640px)').matches;
   if(!mobile)return{x:W/2,y:H/2,availableHeight:H};
-  /* Mobilní karta zabírá spodní část mapy. Vybranou destinaci proto skládáme
-     do středu volné horní plochy, ne pod překryv detailu. */
-  const availableHeight=H*.50;
-  return{x:W/2,y:availableHeight/2,availableHeight};
+  /* Mobilní mapu překrývá legenda filtru shora i karta destinace zdola.
+     Dřív se počítalo jen s kartou a pevnou polovinou výšky, takže při aktivním
+     filtru žluté zimnice mířil zoom na 125 px – přesně za horní legendu, která
+     sahala do 145 px. Měříme proto skutečné překryvy. Karta se navíc vykresluje
+     až po zoomu, takže pro ni držíme rezervu podle výšky mapy. */
+  const overlayHeight=el=>{
+    if(!el||el.hidden)return 0;
+    const rect=el.getBoundingClientRect();
+    return rect.height?rect.height+10:0;
+  };
+  const top=Math.min(overlayHeight(document.getElementById('map-filter-legend')),H*.34);
+  const bottom=Math.max(overlayHeight(document.getElementById('map-info')),H*.40);
+  const bandBottom=Math.max(top,H-bottom);
+  /* Když na volný pruh nezbude nic rozumného, raději destinaci posadíme těsně
+     pod horní překryv než doprostřed – nikdy ne pod kartu. */
+  const y=bandBottom>top+24?(top+bandBottom)/2:Math.min(top+28,H*.5);
+  return{x:W/2,y,availableHeight:Math.max(H*.20,bandBottom-top)};
 }
 
 function zoomToFeat(d,{animate=true}={}){
@@ -3411,6 +3590,9 @@ function zoomToFeat(d,{animate=true}={}){
     const dx=x1-x0,dy=y1-y0,cx=(x0+x1)/2,cy=(y0+y1)/2;
     const focus=mapFocusLayout();
     const sc=Math.max(1.2,Math.min(8,.82/Math.max(dx/W,dy/focus.availableHeight)));
+    /* Mapa v kontejneru nulové šířky (skrytá záložka, 0px iframe) dá 0/0=NaN
+       a d3 pak zapíše transform="translate(NaN,NaN)". Radši nezoomovat. */
+    if(![sc,cx,cy,focus.x,focus.y].every(Number.isFinite))return;
     const t=d3.zoomIdentity.translate(focus.x,focus.y).scale(sc).translate(-cx,-cy);
     if(animate){
       sv.transition().duration(650).call(zb.transform,t);
@@ -3422,8 +3604,11 @@ function zoomToFeat(d,{animate=true}={}){
 
 function zoomToCoords(coords,scale=4.2,{animate=true}={}){
   if(!coords||!prj)return;
-  const [x,y]=prj(coords);
+  const projected=prj(coords);
+  if(!projected)return;
+  const [x,y]=projected;
   const focus=mapFocusLayout();
+  if(![x,y,scale,focus.x,focus.y].every(Number.isFinite))return;
   const t=d3.zoomIdentity.translate(focus.x,focus.y).scale(scale).translate(-x,-y);
   if(animate){
     sv.transition().duration(650).call(zb.transform,t);
@@ -3545,6 +3730,7 @@ function selectCountry(numId,{preserveScroll=false}={}){
   document.getElementById('av-search').value=info.name;
   document.getElementById('av-clr').classList.add('on');
   document.getElementById('av-dd').classList.remove('open');
+  setDropdownExpanded(false);
 
   setActiveQuick(info);
   if(!preserveScroll)scrollMapIntoView();
@@ -3562,16 +3748,23 @@ let sidx=[],ddAct=-1;
 function searchStem(value){
   let t=slugKey(value);
   if(t.length<4)return t;
-  t=t.replace(/(ovia|ovi|ove|ami|ach|ich|ych|em|em)$/,'');
-  t=t.replace(/(sko|ska|sku|ske|ski|cku|cku)$/,'sk');
-  t=t.replace(/(ie|ii|ii)$/,'i');
+  t=t.replace(/(ovia|ovi|ove|ami|ach|ich|ych|em)$/,'');
+  t=t.replace(/(sko|ska|sku|ske|ski)$/,'sk');
+  /* -cko a jeho pády mají vlastní kmen. Dřív se sem sápalo pravidlo pro -sko,
+     takže „Řecku“ dalo „resk“, ale „Řecko“ „reck“ – shoda pak proběhla až přes
+     toleranci překlepu a Řecko spadlo za Českou republiku a Rusko. */
+  t=t.replace(/(cko|cka|cku|cke|cki)$/,'ck');
+  t=t.replace(/(ie|ii)$/,'i');
   t=t.replace(/[aeiouy]+$/,'');
   return t||slugKey(value);
 }
 
-/* Levenshteinova vzdálenost s předčasným ukončením – hledáme jen ≤ max. */
+/* Damerauova-Levenshteinova vzdálenost s předčasným ukončením – hledáme jen ≤ max.
+   Oproti čistému Levenshteinovi počítá prohození dvou sousedních znaků jako
+   jednu úpravu: „Thajkso“ je nejčastější typ překlepu a jinak by nenašlo nic. */
 function editDistanceWithin(a,b,max=1){
   if(Math.abs(a.length-b.length)>max)return max+1;
+  let prevPrev=null;
   let prev=Array.from({length:b.length+1},(_,i)=>i);
   for(let i=1;i<=a.length;i++){
     const cur=[i];
@@ -3579,9 +3772,13 @@ function editDistanceWithin(a,b,max=1){
     for(let j=1;j<=b.length;j++){
       const cost=a[i-1]===b[j-1]?0:1;
       cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+cost);
+      if(i>1&&j>1&&a[i-1]===b[j-2]&&a[i-2]===b[j-1]){
+        cur[j]=Math.min(cur[j],prevPrev[j-2]+1);
+      }
       if(cur[j]<best)best=cur[j];
     }
     if(best>max)return max+1;
+    prevPrev=prev;
     prev=cur;
   }
   return prev[b.length];
@@ -3619,8 +3816,14 @@ function searchScore(entry,queryKey,queryStems){
     if(qs.length<3)return;
     entry.stems.forEach(stem=>{
       if(stem===qs){best=Math.min(best??9,2);return;}
-      if(qs.length>=4&&(stem.startsWith(qs)||qs.startsWith(stem))){best=Math.min(best??9,3);return;}
-      if(qs.length>=4&&editDistanceWithin(stem,qs,1)<=1)best=Math.min(best??9,4);
+      /* Uživatel napsal začátek názvu destinace. */
+      if(qs.length>=4&&stem.startsWith(qs)){best=Math.min(best??9,3);return;}
+      /* Opačný směr je nebezpečný: spojka „a“ v „Antigua a Barbuda“ je platný
+         jednopísmenný kmen a byla prefixem každého dotazu od čtyř znaků, takže
+         „Amerika“ nebo „Argentina“ vytáhly půlku souostroví. Zkratku uznáme,
+         až když má kmen položky sám rozumnou délku. */
+      if(stem.length>=4&&qs.startsWith(stem)){best=Math.min(best??9,3);return;}
+      if(qs.length>=4&&stem.length>=3&&editDistanceWithin(stem,qs,1)<=1)best=Math.min(best??9,4);
     });
   });
   return best;
@@ -3641,10 +3844,9 @@ function regionMatch(queryKey){
     key=Object.keys(REGION_ALIASES).find(k=>searchStem(k)===stem)||null;
   }
   if(!key)return null;
-  const slugs=new Set((REGION_ALIASES[key]||[]).map(slugKey));
   const ids=[];
-  FI.forEach((info,id)=>{
-    if(slugs.has(slugKey(info.slug))||slugs.has(slugKey(info.name)))ids.push(normId(id));
+  (REGION_ALIASES[key]||[]).forEach(slug=>{
+    destinationIdsFor(slug,[destBySlug,destByName]).forEach(id=>{if(!ids.includes(id))ids.push(id);});
   });
   return ids.length?{key,ids}:null;
 }
@@ -3661,12 +3863,37 @@ function diseaseMatchForQuery(queryKey){
   })||null;
 }
 
+/* Našeptávač je combobox: čtečka musí vědět, že je otevřený a která položka
+   je právě vybraná šipkami. Dřív měl role=listbox jen kontejner a uživatel
+   čtečky se o návrzích nedozvěděl vůbec. */
+function setDropdownExpanded(open){
+  const inp=document.getElementById('av-search');
+  if(!inp)return;
+  inp.setAttribute('aria-expanded',String(!!open));
+  if(!open)inp.removeAttribute('aria-activedescendant');
+}
+
+function setActiveDropdownItem(items,index){
+  const inp=document.getElementById('av-search');
+  items.forEach((el,i)=>{
+    const active=i===index;
+    el.classList.toggle('act',active);
+    el.setAttribute('aria-selected',String(active));
+  });
+  const current=items[index];
+  if(inp){
+    if(current)inp.setAttribute('aria-activedescendant',current.id);
+    else inp.removeAttribute('aria-activedescendant');
+  }
+  current?.scrollIntoView({block:'nearest'});
+}
+
 function runSearch(q){
   const dd=document.getElementById('av-dd');
   const clr=document.getElementById('av-clr');
   q=q.trim();
   clr.classList.toggle('on',q.length>0);
-  if(!q){dd.classList.remove('open');ddAct=-1;return;}
+  if(!q){dd.classList.remove('open');setDropdownExpanded(false);ddAct=-1;return;}
 
   const ql=slugKey(q);
   const queryStems=unique(searchTokens(q).map(searchStem));
@@ -3699,18 +3926,22 @@ function runSearch(q){
 
   if(!hits.length&&!shortcuts.length){
     dd.innerHTML='<div class="ddempty">Žádná shoda – zkuste jiný název, třeba „Vietnam“, „Karibik“ nebo „malárie“.</div>';
-    dd.classList.add('open');ddAct=-1;return;
+    dd.classList.add('open');setDropdownExpanded(true);ddAct=-1;return;
   }
 
-  dd.innerHTML=shortcuts.join('')+hits.map(h=>
-    `<div class="ddi" data-nid="${h.nid}" role="option" aria-selected="false">
+  dd.innerHTML=shortcuts.join('')+hits.map((h,i)=>
+    `<div class="ddi" id="av-dd-hit-${i}" data-nid="${h.nid}" role="option" aria-selected="false">
       <span class="ddot" style="background:${h.has?MC.has:MC.none}"></span>
       <span class="ddn">${esc(h.name)}</span>
       ${h.has?'<span class="ddbadge">Máme doporučení</span>':''}
     </div>`
   ).join('');
   dd.classList.add('open');
+  setDropdownExpanded(true);
   ddAct=-1;
+  /* Zkratky se generují dřív než položky, ale id musí mít každá – šipky
+     nastavují aria-activedescendant podle něj. */
+  dd.querySelectorAll('.ddi').forEach((el,i)=>{if(!el.id)el.id=`av-dd-action-${i}`;});
   dd.querySelectorAll('.ddi').forEach(el=>{
     el.addEventListener('mousedown',e=>{
       e.preventDefault();
@@ -3718,11 +3949,13 @@ function runSearch(q){
         document.getElementById('av-search').value='';
         clr.classList.remove('on');
         dd.classList.remove('open');
+        setDropdownExpanded(false);
         setDiseaseFilter(el.dataset.actionDisease);
         return;
       }
       if(el.dataset.actionRegion){
         dd.classList.remove('open');
+        setDropdownExpanded(false);
         showRegion(el.dataset.actionRegion);
         return;
       }
@@ -3731,15 +3964,82 @@ function runSearch(q){
   });
 }
 
-/* Region není destinace – jeho výběrem naplníme trasu, která už umí
-   zobrazit souhrn doporučení přes více destinací. */
+/* ── Region ──
+   Region není trasa. Dřív se jeho destinace tiše ořízly na prvních pět
+   v pořadí mapového podkladu, takže kdo hledal „Karibik“ (29 destinací),
+   dostal pět teritorií a ani Kubu, ani Jamajku – bez jediné zmínky, že se
+   něco zahodilo. Region proto nabídne celý seznam a výběr do trasy necháme
+   na uživateli. */
+let activeRegion=null;
+
+/* Státy před teritorii, pak abecedně. Bez toho vede seznam pořadí polygonů
+   v mapovém podkladu, které pro čtenáře nic neznamená. */
+function regionDestinationOrder(ids){
+  const regional=new Set((typeof REGIONAL_DESTINATION_SLUGS==='undefined'?[]:REGIONAL_DESTINATION_SLUGS).map(slugKey));
+  return (ids||[])
+    .map(id=>FI.get(normId(id)))
+    .filter(Boolean)
+    .sort((a,b)=>{
+      const ta=regional.has(slugKey(a.slug))?1:0;
+      const tb=regional.has(slugKey(b.slug))?1:0;
+      if(ta!==tb)return ta-tb;
+      return a.name.localeCompare(b.name,'cs');
+    });
+}
+
 function showRegion(key){
   const region=regionMatch(slugKey(key));
   if(!region)return;
   const input=document.getElementById('av-search');
   if(input)input.value='';
   document.getElementById('av-clr')?.classList.remove('on');
-  setRoute(region.ids.filter(id=>FI.get(normId(id))?.has));
+  activeRegion={key:region.key,ids:region.ids.filter(id=>FI.get(normId(id))?.has)};
+  renderRegionPanel();
+  document.getElementById('region-panel')?.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function clearRegion(){
+  activeRegion=null;
+  renderRegionPanel();
+}
+
+function renderRegionPanel(){
+  const panel=document.getElementById('region-panel');
+  if(!panel)return;
+  if(!activeRegion){
+    panel.hidden=true;
+    panel.innerHTML='';
+    return;
+  }
+  const infos=regionDestinationOrder(activeRegion.ids);
+  const full=routeIds.length>=ROUTE_MAX;
+  panel.hidden=false;
+  panel.innerHTML=`<div class="region-head">
+    <div>
+      <p class="region-kicker">Region</p>
+      <h2>${esc(regionLabel(activeRegion.key))}</h2>
+      <p class="region-sub">${esc(countDestinations(infos.length))} s cestovními doporučeními. Vyberte až ${ROUTE_MAX}, které chcete porovnat v trase.</p>
+    </div>
+    <span class="region-count${full?' is-full':''}">V trase ${routeIds.length} z ${ROUTE_MAX}</span>
+  </div>
+  <div class="region-grid">${infos.map(info=>{
+    const on=isInRoute(info.id);
+    const blocked=!on&&full;
+    return `<button class="region-chip${on?' on':''}" type="button" data-region-country="${esc(info.id)}" aria-pressed="${on}"${blocked?' disabled':''} title="${esc(blocked?`Trasa je plná (${ROUTE_MAX} destinací)`:on?`Odebrat ${info.name} z trasy`:`Přidat ${info.name} do trasy`)}">
+      <span class="region-chip-mark" aria-hidden="true">${on?'✓':'+'}</span>${esc(info.name)}
+    </button>`;
+  }).join('')}</div>
+  ${full?`<p class="region-note">Trasa je plná. Chcete-li přidat jinou destinaci, nejprve některou odeberte.</p>`:''}
+  <div class="region-actions">
+    ${routeIds.length?`<button class="bmore secondary" type="button" data-region-clear-route>Vymazat trasu</button>`:''}
+    <button class="bmore ghost" type="button" data-region-close>Zavřít region</button>
+  </div>`;
+
+  panel.querySelectorAll('[data-region-country]').forEach(btn=>{
+    btn.addEventListener('click',()=>toggleRouteDestination(btn.dataset.regionCountry));
+  });
+  panel.querySelector('[data-region-clear-route]')?.addEventListener('click',clearRoute);
+  panel.querySelector('[data-region-close]')?.addEventListener('click',clearRegion);
 }
 
 function setupSearch(){
@@ -3752,26 +4052,36 @@ function setupSearch(){
 
   clr.addEventListener('click',()=>{
     inp.value='';clr.classList.remove('on');
-    dd.classList.remove('open');inp.focus();
+    dd.classList.remove('open');setDropdownExpanded(false);inp.focus();
   });
 
   inp.addEventListener('keydown',e=>{
     const its=[...dd.querySelectorAll('.ddi')];
     if(e.key==='ArrowDown'){
-      e.preventDefault();ddAct=Math.min(ddAct+1,its.length-1);
-      its.forEach((el,i)=>el.classList.toggle('act',i===ddAct));
+      e.preventDefault();
+      if(!its.length)return;
+      /* Ze spodní položky se vrací nahoru, jak je u comboboxu zvykem. */
+      ddAct=ddAct>=its.length-1?0:ddAct+1;
+      setActiveDropdownItem(its,ddAct);
     }else if(e.key==='ArrowUp'){
-      e.preventDefault();ddAct=Math.max(ddAct-1,0);
-      its.forEach((el,i)=>el.classList.toggle('act',i===ddAct));
+      e.preventDefault();
+      if(!its.length)return;
+      ddAct=ddAct<=0?its.length-1:ddAct-1;
+      setActiveDropdownItem(its,ddAct);
     }else if(e.key==='Enter'&&ddAct>=0){
       its[ddAct]?.dispatchEvent(new MouseEvent('mousedown',{bubbles:true}));
     }else if(e.key==='Escape'){
       dd.classList.remove('open');
+      setDropdownExpanded(false);
+      ddAct=-1;
     }
   });
 
   document.addEventListener('click',e=>{
-    if(!e.target.closest('.sw'))dd.classList.remove('open');
+    if(!e.target.closest('.sw')){
+      dd.classList.remove('open');
+      setDropdownExpanded(false);
+    }
   });
 }
 
@@ -3843,13 +4153,7 @@ function destinationShareKey(info){
 function findDestinationByShareKey(rawKey){
   const key=slugKey(rawKey);
   if(!key)return null;
-  let bySlug=null,byId=null,byName=null;
-  FI.forEach((info,id)=>{
-    if(slugKey(info?.slug)===key)bySlug=bySlug??id;
-    if(slugKey(String(id))===key)byId=byId??id;
-    if(slugKey(info?.name)===key)byName=byName??id;
-  });
-  return bySlug??byId??byName??null;
+  return destBySlug.get(key)?.[0] ?? destById.get(key)?.[0] ?? destByName.get(key)?.[0] ?? null;
 }
 
 function activeFacetForShare(){
@@ -4203,7 +4507,7 @@ function setupAdminDiseaseEditor(apiRows,unmatchedApi){
       row.querySelectorAll('[data-mode]').forEach(btn=>{
         btn.addEventListener('click',()=>{
           setDiseaseOverride(select.value,id,btn.dataset.mode);
-          if(activeDisease===select.value){
+          if(activeDiseaseKeys().includes(select.value)){
             repaintMap();
             renderFilterResults();
             if(curInfo)renderMapInfo(curInfo,getCachedDetail(curInfo.slug),false);
@@ -4228,7 +4532,7 @@ function setupAdminDiseaseEditor(apiRows,unmatchedApi){
   document.getElementById('adm-disease-clear')?.addEventListener('click',()=>{
     if(confirm('Vyčistit ruční úpravy pro aktuálně vybraný filtr?')){
       clearDiseaseOverrides(select.value);
-      if(activeDisease===select.value){
+      if(activeDiseaseKeys().includes(select.value)){
         repaintMap();
         renderFilterResults();
         if(curInfo)renderMapInfo(curInfo,getCachedDetail(curInfo.slug),false);
@@ -4443,6 +4747,9 @@ async function initMapInternal(){
       });
     }
   });
+
+  /* FI je hotové – od teď se destinace hledají přes rejstřík, ne skenem. */
+  rebuildDestinationKeyIndex();
 
   const matchedEntries=[...FI.values()].filter(x=>x.has);
   const matchedApiKeys=new Set(matchedEntries.flatMap(x=>[slugKey(x.slug),slugKey(x.name),slugKey(x.www?.split('/').filter(Boolean).pop()||'')]));

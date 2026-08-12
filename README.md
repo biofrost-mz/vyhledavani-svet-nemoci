@@ -304,7 +304,35 @@ pruhovaná skupina, takže výběr nese víc informace než dřív.
 - kombinace je omezená na čtyři nemoci — nad čtyři barvy přestává být mapa čitelná,
 - statické assety mají verzovaný cache-buster `v=24.7`.
 
+## v24.9 – opravy nalezené auditem
+
+Revize celé aplikace proti živým datům. Nejzávažnější nález byl v souhrnu trasy:
+destinace, které doporučení mají, ale nepodařilo se je načíst, se kreslily jako
+potvrzené „doporučení neuvedeno“ — výpadek sítě se tvářil jako zdravotní údaj.
+
+- **trasa rozlišuje „neuvedeno“ od „bez údajů“**: nenačtená destinace má v matici `?`, v kartě „Doporučení se nepodařilo načíst“ místo „0 povinných očkování“, nepočítá se do poměrů (`2/2` místo zavádějícího `2/3`) a nabízí tlačítko „Zkusit načíst znovu“,
+- **vyhledávání řadí relevantně**: jednopísmenné kmeny (spojka „a“ v „Antigua a Barbuda“) už nepřebíjejí skutečnou shodu a `-cko` má vlastní kmen; „v Německu“ vracelo Niue a Severní Mariany před Německem, „v Řecku“ Českou republiku a Rusko před Řeckem,
+- **tolerance překlepů zvládá prohození znaků** („Thajkso“ → Thajsko),
+- **region nabídne výběr místo tichého ořezu**: „Karibik“ dřív naplnil trasu prvními pěti destinacemi v pořadí mapového podkladu a zbylých 24 zahodil bez upozornění; nově se vypíšou všechny (státy před teritorii, pak abecedně) a uživatel si vybere až pět,
+- **první kliknutí na filtr nezamrzne**: párování destinací jde přes předpočítaný rejstřík místo lineárního skenu, 294 ms → 18 ms,
+- **export PNG má průběh a chystá podklady dopředu**: první export 13,1 s → 3,5 s, po otevření dialogu ~2 s; tlačítko hlásí fázi místo jedné statické věty,
+- **mobilní mapa je vidět**: legenda filtru v mapě zabírala 142 z 500 px a dvě ze čtyř tlačítek kategorií byla mimo obrazovku ve skrytém vodorovném scrollu — na mobilu ji nahradil přehled hned pod mapou; zoom navíc měří skutečné překryvy místo pevné poloviny výšky,
+- **odkazy z API projdou whitelistem schémat** (`safeUrl`), aby se z datové položky nemohl stát `javascript:` odkaz,
+- **našeptávač je pro čtečku skutečný combobox** (`aria-expanded`, `aria-activedescendant`, procházení dokola šipkami),
+- ruční úprava filtru v admin panelu zneplatňuje cache kombinace,
+- automatický PR s indexem si sám pouští „Kontrolu aplikace“ — PR z `GITHUB_TOKEN` další workflow nespouští, takže se dřív neověřil vůbec,
+- `verify-app.mjs` hlídá počet destinací rozsahem místo natvrdo psaných 230 a navíc kontroluje, že s ním souhlasí meta popisky v `index.html`,
+- statické assety mají verzovaný cache-buster `v=24.9`.
+
 ### Známá omezení
 - aplikaci je potřeba servírovat přes HTTP(S); při otevření přes `file://` selže načtení dat kvůli CORS,
 - filtry žloutenky A i B (230/230), meningokoka (229), spalniček (228) a chřipky (226) zvýrazní téměř celou mapu; upozorňuje na to poznámka pod výsledky,
-- mapa není ovladatelná z klávesnice, alternativou zůstává vyhledávání.
+- `map.css` má přes 2 000 řádků ve dvaceti vrstvených „verzích“ se 150+ `!important`; každá další designová změna je dražší.
+
+## v24.10 – mobilní trasa a vysvětlení poměrů
+
+- mobilní „Přehled podle destinací“ používá karty místo široké tabulky se sticky sloupcem, který se v Safari překrýval s výsledky,
+- mobilní mapa je nižší a náhled destinace skrývá duplicitní akce, drží odznaky v jedné řadě a zabírá podstatně menší část mapy,
+- na desktopu se po najetí nebo zaměření položky s poměrem `2/2` zobrazí náhled rozdělený na zelené „Uvedeno v“ a šedé „Neuvedeno v“; kliknutí dál otevírá úplný dialog,
+- lokální testovací server naslouchá pouze na `127.0.0.1`, takže omylem nezpřístupní projekt do sítě,
+- statické assety mají verzovaný cache-buster `v=24.10`.

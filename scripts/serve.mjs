@@ -11,6 +11,7 @@ import {fileURLToPath} from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const port = Number(process.argv[2]) || Number(process.env.PORT) || 8777;
+const host = '127.0.0.1';
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -53,6 +54,6 @@ createServer(async (req, res) => {
     res.writeHead(404, {'Content-Type': 'text/plain; charset=utf-8'});
     res.end('Soubor nenalezen');
   }
-}).listen(port, () => {
-  console.log(`Vakcinační mapa běží na http://localhost:${port}`);
+}).listen(port, host, () => {
+  console.log(`Vakcinační mapa běží na http://${host}:${port}`);
 });

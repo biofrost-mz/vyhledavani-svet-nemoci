@@ -1969,3 +1969,175 @@ circle.dest-marker.kb-focus{
 .fcombo-dot{width:10px;height:10px;border-radius:3px;flex:0 0 auto;border:1px solid rgba(0,0,0,.12)}
 .fcombo-plus{font-style:normal;color:#b07;opacity:.6;margin-left:-4px;margin-right:2px}
 .fcombo-overlap{font-size:11.5px;color:#6c7b75}
+
+/* ==== v24.9 nenačtený detail v trase ==== */
+/* Výpadek načtení se dřív kreslil stejně jako „doporučení neuvedeno“.
+   Musí být na první pohled jiný stav, ne slabší varianta „ne“. */
+.route-missing-error{
+  background:rgba(242,183,5,.10);border-color:rgba(242,183,5,.42);color:#6b5200;
+  display:flex;flex-wrap:wrap;align-items:center;gap:8px;
+}
+.route-missing-error strong{color:#5a4500}
+.route-retry{
+  border:1px solid rgba(242,183,5,.55);border-radius:999px;background:#fff;color:#6b5200;
+  padding:7px 13px;min-height:32px;font:700 11px 'Saira',sans-serif;cursor:pointer;
+}
+.route-retry:hover:not(:disabled){background:rgba(242,183,5,.18)}
+.route-retry:disabled{opacity:.6;cursor:progress}
+
+.route-destination-card.is-failed{border-color:rgba(242,183,5,.5);background:rgba(242,183,5,.07)}
+.route-destination-card.is-failed small{color:#6b5200;font-weight:700}
+.route-destination-card.is-nodata{background:#f7f9f8}
+.route-destination-card.is-nodata small{color:#7b8984}
+
+.route-item-dialog-group.unknown{background:#fff8e2;border-color:rgba(242,183,5,.42)}
+.route-item-dialog-group.unknown h3 span{background:#f2b705;color:#3d2f00}
+.route-item-dialog-group.unknown button{border-color:rgba(242,183,5,.45);color:#6b5200}
+
+/* ==== v24.9 výběr destinací v regionu ==== */
+/* Region má klidně 29 destinací, trasa unese 5. Dřív se rozdíl tiše zahodil;
+   teď je vidět celý seznam a výběr je na uživateli. */
+.region-panel{
+  margin-top:14px;padding:22px 24px 18px;
+  border-radius:24px;
+  border:1px solid rgba(0,103,120,.20);
+  background:radial-gradient(circle at right top,rgba(0,103,120,.09) 0%,rgba(255,255,255,0) 48%),linear-gradient(135deg,#fff,#f7fcfc);
+  box-shadow:0 18px 40px rgba(0,103,120,.07);
+}
+.region-panel[hidden]{display:none!important}
+.region-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px}
+.region-kicker{
+  font-family:'Saira',sans-serif;font-size:10px;font-weight:700;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--oc-blue);margin-bottom:4px;
+}
+.region-head h2{
+  font-family:'Saira',sans-serif;font-size:26px;font-weight:600;
+  line-height:1.2;color:var(--oc-blue);letter-spacing:-.02em;margin:0;
+}
+.region-sub{margin:6px 0 0;font-size:13px;line-height:1.6;color:var(--oc-muted)}
+.region-count{
+  font-family:'Saira',sans-serif;font-size:12px;font-weight:700;color:#00525f;
+  background:rgba(0,103,120,.12);border-radius:999px;padding:7px 13px;white-space:nowrap;
+}
+.region-count.is-full{background:rgba(242,183,5,.24);color:#6d4f00}
+.region-grid{display:flex;flex-wrap:wrap;gap:7px}
+.region-chip{
+  display:inline-flex;align-items:center;gap:7px;min-height:34px;
+  padding:7px 14px 7px 9px;border-radius:999px;cursor:pointer;
+  border:1px solid rgba(0,103,120,.18);background:#fff;color:#42534d;
+  font:600 12.5px 'Saira',sans-serif;transition:background .15s,border-color .15s,color .15s;
+}
+.region-chip:hover:not(:disabled){border-color:rgba(0,103,120,.42);background:rgba(0,103,120,.05)}
+.region-chip-mark{
+  display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;
+  border-radius:50%;background:rgba(0,103,120,.10);color:var(--oc-blue);
+  font:700 11px 'Saira',sans-serif;flex:0 0 auto;
+}
+.region-chip.on{background:rgba(242,183,5,.16);border-color:rgba(242,183,5,.6);color:#6d4f00}
+.region-chip.on .region-chip-mark{background:#f2b705;color:#3d2f00}
+.region-chip:disabled{opacity:.42;cursor:not-allowed}
+.region-note{margin:12px 0 0;font-size:12px;color:#6d4f00}
+.region-actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:16px}
+.region-actions .bmore.ghost{background:#fff;color:var(--oc-blue);border:1px solid rgba(0,103,120,.16);box-shadow:none}
+.region-actions .bmore.ghost:hover{background:rgba(0,103,120,.06)}
+
+@media(max-width:640px){
+  .region-panel{padding:18px 16px 16px;border-radius:20px}
+  .region-head{flex-direction:column;gap:8px}
+  .region-head h2{font-size:21px}
+  .region-grid{max-height:280px;overflow-y:auto}
+}
+
+/* ==== v24.9 mobilní překryvy mapy ==== */
+@media(max-width:640px){
+  /* Legenda filtru v mapě zabírala 142 z 500 px výšky mapy a dvě ze čtyř
+     tlačítek kategorií byla mimo obrazovku ve skrytém vodorovném scrollu.
+     Úplně stejná tlačítka i plné vysvětlivky jsou v přehledu výsledků hned
+     pod mapou, takže na mobilu překryv jen bral místo. */
+  .map-filter-legend{display:none!important}
+}
+
+/* ==== v24.9 dotykové cíle ==== */
+/* WCAG 2.2 chce alespoň 24×24 px. Křížek u vyhledávání měl 48×20 a odkazy na
+   zdroje 16–18 px na výšku – na dotyku se do nich těžko trefovalo. */
+.sclr.on{display:inline-flex;align-items:center;justify-content:center;min-width:32px;min-height:32px;padding:0 14px}
+.mfl-source,.fr-yf-links a,.external-meta a,.fr-source-note a{
+  display:inline-flex;align-items:center;min-height:24px;
+}
+
+/* ==== v24.10 responzivní trasa a kompaktní detail mapy ==== */
+/* Na desktopu ukáže poměr 2/2 i přesné rozdělení bez nutnosti klikat. */
+.route-item-tooltip{
+  position:fixed;z-index:10020;width:min(360px,calc(100vw - 20px));padding:12px;
+  border-radius:13px;background:#fff;border:1px solid rgba(0,103,120,.18);
+  box-shadow:0 16px 38px rgba(4,20,43,.24);color:#42534d;pointer-events:none;
+}
+.route-item-tooltip-title{margin:0 0 8px;font:700 13px/1.35 'Saira',sans-serif;color:var(--oc-blue)}
+.route-item-tooltip-group{display:grid;grid-template-columns:88px minmax(0,1fr);gap:8px;padding:7px 8px;border-radius:9px;font-size:11px;line-height:1.45}
+.route-item-tooltip-group+.route-item-tooltip-group{margin-top:5px}
+.route-item-tooltip-group strong{font:700 10.5px/1.45 'Saira',sans-serif}
+.route-item-tooltip-group.yes{background:rgba(120,190,32,.12);color:#356306}
+.route-item-tooltip-group.no{background:#f1f4f2;color:#64736d}
+.route-item-tooltip-group.unknown{background:#fff3cb;color:#755700}
+.route-item-tooltip-hint{margin:8px 2px 0;color:#7a8882;font-size:9.5px}
+
+@media(max-width:640px){
+  /* Místo široké desktopové tabulky má každé doporučení vlastní kartu.
+     Odstraňuje to i chybu sticky sloupce v Safari na iOS. */
+  .route-table-scroll{overflow:visible;border:0;border-radius:0;background:transparent}
+  .route-matrix{display:block;width:100%;min-width:0;font-size:11px}
+  .route-matrix thead{display:none}
+  .route-matrix tbody{display:grid;gap:9px}
+  .route-matrix tbody tr{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(74px,1fr));gap:0;
+    overflow:hidden;border:1px solid rgba(0,103,120,.14);border-radius:12px;background:#fff;
+  }
+  .route-matrix tbody tr[hidden]{display:none!important}
+  .route-matrix tbody th{
+    position:static!important;grid-column:1/-1;display:flex!important;width:auto!important;
+    min-width:0!important;max-width:none!important;padding:9px 10px;border:0;
+    border-bottom:1px solid rgba(0,103,120,.09);background:#f5f9f7!important;
+  }
+  .route-matrix tbody th a,.route-matrix tbody th>span:last-child{min-width:0;line-height:1.35}
+  .route-matrix tbody td{
+    min-width:0;padding:8px 6px;border:0;border-right:1px solid rgba(0,103,120,.07);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
+    background:#fff!important;text-align:center;
+  }
+  .route-matrix tbody td[hidden]{display:none!important}
+  .route-matrix tbody td::before{
+    content:attr(data-route-destination-name);max-width:100%;color:#66756f;
+    font:700 8.5px/1.25 'Saira',sans-serif;overflow-wrap:anywhere;
+  }
+  .route-matrix-total{white-space:normal;color:var(--oc-blue)}
+  .route-matrix-total strong{font-size:11px}
+
+  /* Mapa i náhled destinace jsou na telefonu výrazně nižší. */
+  #mw,#av-map{height:400px!important}
+  .map-info{
+    max-height:calc(100% - 16px)!important;overflow:auto!important;
+    padding:12px 12px 11px!important;border-radius:16px!important;
+  }
+  .map-info .mi-head{margin-bottom:6px;padding:1px 38px 0 1px}
+  .map-info .mi-title{font-size:21px;line-height:1.12;margin-top:2px}
+  .map-info .mi-label{font-size:9px}
+  .map-info .mi-close{top:0;width:34px;height:34px;font-size:18px}
+  .map-info .mi-route-nav{grid-template-columns:32px 1fr 32px;margin:0 0 6px;padding:3px}
+  .map-info .mi-route-nav button{width:32px;height:28px}
+  .map-info .mi-badges{
+    flex-wrap:nowrap;overflow-x:auto;gap:5px;margin:4px 0 7px;padding:0 0 5px;
+    scrollbar-width:none;
+  }
+  .map-info .mi-badges::-webkit-scrollbar{display:none}
+  .map-info .mi-badge{flex:0 0 auto;font-size:9.5px;padding:5px 7px}
+  .map-info .destination-filter-notice{margin:5px 0 8px;padding:7px 8px;font-size:9.5px;line-height:1.35}
+  .map-info .destination-filter-notice button{padding:5px 7px;font-size:9px}
+  .map-info .mi-actions{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px;margin-top:5px}
+  .map-info .mi-actions .mi-btn{min-height:36px;padding:6px 8px;font-size:9.5px;line-height:1.25}
+  .map-info .mi-btn.center,.map-info .mi-btn.share{display:none!important}
+  .map-info .mi-btn.ghost{display:inline-flex!important;grid-column:1/-1}
+}
+
+@media(max-width:420px){
+  #mw,#av-map{height:380px!important}
+}
